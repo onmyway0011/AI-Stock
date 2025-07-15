@@ -1,0 +1,183 @@
+# 依赖
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 构建输出
+dist/
+build/
+*.tsbuildinfo
+
+# 环境变量
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 数据文件
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# 日志文件
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# 运行时数据
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# 目录
+lib-cov
+coverage/
+.nyc_output
+.grunt
+bower_components
+.lock-wscript
+
+# 编译的二进制插件
+build/Release
+
+# 依赖目录
+node_modules/
+jspm_packages/
+
+# TypeScript缓存
+*.tsbuildinfo
+
+# 可选npm缓存目录
+.npm
+# 可选eslint缓存
+.eslintcache
+
+# Microbundle缓存
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# 可选REPL历史
+.node_repl_history
+
+# 输出的 npm 包
+*.tgz
+
+# Yarn依赖文件夹
+.yarn-integrity
+
+# dotenv环境变量文件
+.env.test
+
+# parcel-bundler缓存 (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js构建输出
+.next
+
+# Nuxt.js构建/生成输出
+.nuxt
+dist
+
+# Gatsby文件
+.cache/
+public
+
+# Storybook构建输出
+.out
+.storybook-out
+
+# 临时文件夹
+tmp/
+temp/
+
+# Serverless目录
+.serverless/
+
+# FuseBox缓存
+.fusebox/
+
+# DynamoDB本地文件
+.dynamodb/
+
+# TernJS端口文件
+.tern-port
+
+# IDE和编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统生成的文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 测试覆盖率
+coverage/
+.nyc_output/
+
+# Jest
+jest_output/
+
+# 文档生成
+docs/
+
+# 备份文件
+*.bak
+*.backup
+
+# SSL证书
+*.pem
+*.key
+*.crt
+
+# 配置文件的本地副本
+config/local.*
+config/*.local.*
+
+# Docker
+.dockerignore
+
+# Kubernetes
+*.yaml.local
+*.yml.local
+
+# 监控和日志
+grafana/
+prometheus/
+
+# 机器学习模型
+models/
+*.h5
+*.pkl
+*.joblib
+
+# 数据文件
+*.csv
+*.json.gz
+*.parquet
+
+# 性能测试结果
+benchmark/
+performance/
+
+# 临时API密钥文件
+api_keys/
+secrets/
