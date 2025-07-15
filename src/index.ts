@@ -1,4 +1,82 @@
 /**
+ * AI Stock Trading System
+ * 主入口文件 - 重构后的三层架构
+ */
+
+// 核心模块
+export * from './core';
+
+// 业务模块 
+export * from './modules';
+
+// 共享资源
+export * from './shared';
+
+// 应用入口
+export * from './apps';
+
+// 向后兼容：重新导出原有的核心类
+export { TradingSignalGenerator } from './signals/generators/TradingSignalGenerator';
+export { SignalService } from './signals/SignalService';
+export { NotificationManager } from './notifications/NotificationManager';
+export { BacktestEngine } from './backtest/engine/BacktestEngine';
+export { BinanceCollector } from './data/collectors/BinanceCollector';
+export { MovingAverageStrategy } from './strategies/traditional/MovingAverageStrategy';
+export { LeftSideBuildingStrategy } from './strategies/advanced/LeftSideBuildingStrategy';
+
+// 版本信息
+export const VERSION = '1.0.0';
+export const BUILD_TIME = new Date().toISOString();
+export const ARCHITECTURE_VERSION = '3-layer-v1.0';
+
+// 便捷工厂方法 - 自动检测新旧架构
+export function createTradingSystem(config?: any) {
+  try {
+    // 尝试使用新架构
+    const TradingSignalGenerator = require('./modules/signals/generators/TradingSignalGenerator').TradingSignalGenerator;
+    const SignalService = require('./modules/signals/SignalService').SignalService;
+    const NotificationManager = require('./modules/notifications/NotificationManager').NotificationManager;
+    const BacktestEngine = require('./modules/backtest/engine/BacktestEngine').BacktestEngine;
+    
+    return {
+      signalGenerator: new TradingSignalGenerator(config?.signal),
+      signalService: new SignalService(config?.service),
+      notificationManager: new NotificationManager(config?.notification),
+      backtestEngine: new BacktestEngine(config?.backtest),
+    };
+  } catch (error) {
+    // 回退到原有架构
+    const TradingSignalGenerator = require('./signals/generators/TradingSignalGenerator').TradingSignalGenerator;
+    const SignalService = require('./signals/SignalService').SignalService;
+    const NotificationManager = require('./notifications/NotificationManager').NotificationManager;
+    const BacktestEngine = require('./backtest/engine/BacktestEngine').BacktestEngine;
+    
+    return {
+      signalGenerator: new TradingSignalGenerator(config?.signal),
+      signalService: new SignalService(config?.service),
+      notificationManager: new NotificationManager(config?.notification),
+      backtestEngine: new BacktestEngine(config?.backtest),
+    };
+  }
+}
+
+// 架构信息
+export const ARCHITECTURE_INFO = {
+  version: ARCHITECTURE_VERSION,
+  layers: {
+    core: '🔧 核心系统层 - 引擎、接口、常量',
+    modules: '💼 业务模块层 - 数据、策略、信号、通知、回测',
+    shared: '🛠️ 共享资源层 - 工具、类型、配置、错误',
+    apps: '🚀 应用层 - CLI、API'
+  },
+  migration: {
+    compatible: true,
+    status: 'backward-compatible',
+    description: '新架构向后兼容，原有API保持不变'
+  }
+};
+
+/**
  * AI量化交易系统主入口文件
  * 展示系统的完整使用示例和启动流程
  */
@@ -6,7 +84,6 @@
 import { config, validateConfig } from './config';
 import { BinanceCollector } from './data/collectors/BinanceCollector';
 import { MovingAverageStrategy } from './strategies/traditional/MovingAverageStrategy';
-import { BacktestEngine } from './backtest/engine/BacktestEngine';
 import { BaseSignalGenerator } from './signals/generators/BaseSignalGenerator';
 import { 
   StrategyConfig,
@@ -238,7 +315,6 @@ class TradingSystemApp {
       // 生成信号
       console.log('运行信号生成器...');
       const signals = await this.signalGenerator.processMarketData(marketData);
-      
       if (signals.length > 0) {
         console.log(`✅ 生成 ${signals.length} 个信号:`);
         signals.forEach((signal, i) => {
@@ -290,7 +366,6 @@ class TradingSystemApp {
       console.log('开始回测...');
       console.log(`回测期间: ${backtestConfig.startDate} 至 ${backtestConfig.endDate}`);
       console.log(`初始资金: ${FormatUtils.formatCurrency(backtestConfig.initialCapital)}`);
-
       // 运行回测（带进度回调）
       const result = await this.backtestEngine.run(backtestConfig, (progress) => {
         if (progress.processedBars % 100 === 0) {
@@ -370,7 +445,6 @@ class TradingSystemApp {
    */
   async cleanup(): Promise<void> {
     console.log('\n🧹 清理系统资源...');
-    
     if (this.dataCollector) {
       this.dataCollector.destroy();
     }
