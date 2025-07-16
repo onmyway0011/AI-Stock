@@ -489,7 +489,6 @@ export class ValidationUtils {
   }
 }
 // ============= 格式化工具 =============
-
 /**
  * 格式化工具类
  */
@@ -653,4 +652,11 @@ export {
   FormatUtils,
   ErrorUtils,
   SimpleCache
+};
+// 重新导出常用工具
+export const Utils = {
+  Math: MathUtils,
+  Date: DateUtils,
+  Validation: ValidationUtils,
+  String: FormatUtils
 };

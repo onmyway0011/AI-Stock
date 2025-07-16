@@ -62,21 +62,21 @@ export class LeftSideBuildingStrategy extends BaseStrategy {
   constructor(config: LeftSideBuildingConfig) {
     super('LeftSideBuildingStrategy', {
       ...config,
-      confidenceThreshold: config.confidenceThreshold || 0.8
+      confidenceThreshold: config.confidenceThreshold ?? 0.8
     });
     
     this.params = {
-      minDropPercent: 0.05,
-      addPositionDropInterval: 0.03,
-      maxBuildingTimes: 5,
-      basePositionSize: 1000,
-      positionMultiplier: 1.5,
-      priceConfirmationPeriods: 3,
-      stopLossFromHigh: 0.25,
-      profitTakingThresholds: [0.10, 0.20, 0.35],
-      reductionRatios: [0.3, 0.5, 1.0],
-      buildPositionInterval: 3600000, // 1小时
-      ...config
+      minDropPercent: config.minDropPercent ?? 0.05,
+      addPositionDropInterval: config.addPositionDropInterval ?? 0.03,
+      maxBuildingTimes: config.maxBuildingTimes ?? 5,
+      basePositionSize: config.basePositionSize ?? 1000,
+      positionMultiplier: config.positionMultiplier ?? 1.5,
+      priceConfirmationPeriods: config.priceConfirmationPeriods ?? 3,
+      stopLossFromHigh: config.stopLossFromHigh ?? 0.25,
+      profitTakingThresholds: config.profitTakingThresholds ?? [0.10, 0.20, 0.35],
+      reductionRatios: config.reductionRatios ?? [0.3, 0.5, 1.0],
+      buildPositionInterval: config.buildPositionInterval ?? 3600000, // 1小时
+      confidenceThreshold: config.confidenceThreshold ?? 0.8
     };
   }
 
@@ -267,7 +267,6 @@ export class LeftSideBuildingStrategy extends BaseStrategy {
           reductionRatio: (reductionRatio * 100).toFixed(0) + '%',
           quantity: reductionQuantity
         });
-
         const signal = this.createAdvancedSignal(
           symbol,
           OrderSide.SELL,
@@ -301,7 +300,6 @@ export class LeftSideBuildingStrategy extends BaseStrategy {
   ): Promise<AdvancedSignal | null> {
     const position = await this.getPosition(symbol);
     if (!position || !position.isActive) return null;
-
     const highPrice = this.highPrices.get(symbol);
     if (!highPrice) return null;
 
@@ -312,7 +310,6 @@ export class LeftSideBuildingStrategy extends BaseStrategy {
         currentPrice,
         avgCost: position.avgPrice
       });
-
       return this.createAdvancedSignal(
         symbol,
         OrderSide.SELL,
