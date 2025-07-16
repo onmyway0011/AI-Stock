@@ -2,8 +2,7 @@
  * 左侧建仓策略
  * 在价格下跌过程中分批建仓，采用金字塔式加仓方式
  */
-
-import { AdvancedBaseStrategy, AdvancedStrategyConfig } from '../base/AdvancedBaseStrategy';
+import { BaseStrategy } from '../base/BaseStrategy';
 import { AdvancedSignal, AdvancedSignalType, Position } from '../base/AdvancedStrategyInterface';
 import { MarketData, OrderSide, SignalStrength } from '../../types';
 import { MathUtils, createLogger } from '../../utils';
@@ -11,9 +10,9 @@ import { MathUtils, createLogger } from '../../utils';
 const logger = createLogger('LEFT_SIDE_STRATEGY');
 
 /**
- * 左侧建仓策略参数
+ * 左侧建仓策略配置
  */
-interface LeftSideBuildingParams {
+export interface LeftSideBuildingConfig {
   /** 触发建仓的最小跌幅 */
   minDropPercent: number;
   /** 每次加仓的跌幅间隔 */
@@ -32,6 +31,10 @@ interface LeftSideBuildingParams {
   profitTakingThresholds: number[];
   /** 减仓比例 */
   reductionRatios: number[];
+  /** 建仓间隔时间（毫秒） */
+  buildPositionInterval: number;
+  /** 置信度阈值 */
+  confidenceThreshold?: number;
 }
 
 /**
@@ -49,15 +52,18 @@ interface BuildingRecord {
 /**
  * 左侧建仓策略类
  */
-export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
-  private params: LeftSideBuildingParams;
+export class LeftSideBuildingStrategy extends BaseStrategy {
+  private params: LeftSideBuildingConfig;
   private buildingRecords = new Map<string, BuildingRecord[]>();
   private highPrices = new Map<string, number>();
   private lastBuildTime = new Map<string, number>();
   private reductionFlags = new Map<string, Set<number>>();
 
-  constructor(config: AdvancedStrategyConfig) {
-    super('LeftSideBuildingStrategy', config);
+  constructor(config: LeftSideBuildingConfig) {
+    super('LeftSideBuildingStrategy', {
+      ...config,
+      confidenceThreshold: config.confidenceThreshold || 0.8
+    });
     
     this.params = {
       minDropPercent: 0.05,
@@ -69,7 +75,8 @@ export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
       stopLossFromHigh: 0.25,
       profitTakingThresholds: [0.10, 0.20, 0.35],
       reductionRatios: [0.3, 0.5, 1.0],
-      ...config.parameters
+      buildPositionInterval: 3600000, // 1小时
+      ...config
     };
   }
 
@@ -99,6 +106,57 @@ export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
   }
 
   /**
+   * 更新最高价
+   */
+  private updateHighPrice(symbol: string, data: MarketData): void {
+    if (!data.klines || data.klines.length === 0) return;
+
+    const currentHigh = Math.max(...data.klines.slice(-20).map(k => k.high));
+    const existingHigh = this.highPrices.get(symbol) || 0;
+    
+    if (currentHigh > existingHigh) {
+      this.highPrices.set(symbol, currentHigh);
+      
+      // 重置建仓记录（新高点，重新开始监控）
+      this.buildingRecords.delete(symbol);
+      this.reductionFlags.delete(symbol);
+      
+      logger.info(`更新高点价格: ${symbol} ${currentHigh}`);
+    }
+  }
+
+  /**
+   * 确认价格趋势
+   */
+  private confirmPriceMovement(data: MarketData, direction: 'UP' | 'DOWN'): boolean {
+    if (!data.klines || data.klines.length < this.params.priceConfirmationPeriods) {
+      return false;
+    }
+
+    const recentPrices = data.klines
+      .slice(-this.params.priceConfirmationPeriods)
+      .map(k => k.close);
+
+    let confirmCount = 0;
+    for (let i = 1; i < recentPrices.length; i++) {
+      if (direction === 'DOWN' && recentPrices[i] < recentPrices[i - 1]) {
+        confirmCount++;
+      } else if (direction === 'UP' && recentPrices[i] > recentPrices[i - 1]) {
+        confirmCount++;
+      }
+    }
+
+    return confirmCount >= Math.floor(this.params.priceConfirmationPeriods * 0.6);
+  }
+
+  /**
+   * 计算建仓数量
+   */
+  private calculateBuildingQuantity(level: number): number {
+    return Math.floor(this.params.basePositionSize * Math.pow(this.params.positionMultiplier, level - 1));
+  }
+
+  /**
    * 检查建仓信号
    */
   private async checkBuildingSignal(
@@ -114,7 +172,7 @@ export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
     const lastBuildTime = this.lastBuildTime.get(symbol) || 0;
     const currentTime = Date.now();
 
-    if (currentTime - lastBuildTime < this.leftSideTradingConfig.buildPositionInterval) {
+    if (currentTime - lastBuildTime < this.params.buildPositionInterval) {
       return null;
     }
 
@@ -136,6 +194,7 @@ export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
         buildLevel = buildingRecords.length + 1;
       }
     }
+
     if (!shouldBuild) return null;
 
     if (!this.confirmPriceMovement(data, 'DOWN')) {
@@ -219,7 +278,6 @@ export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
           AdvancedSignalType.BATCH_REDUCE,
           SignalStrength.MODERATE
         );
-
         signal.batchInfo = {
           batchNumber: i + 1,
           totalBatches: this.params.profitTakingThresholds.length,
@@ -271,59 +329,108 @@ export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
   }
 
   /**
-   * 更新高点价格
+   * 创建高级信号的辅助方法
    */
-  private updateHighPrice(symbol: string, data: MarketData): void {
-    const recentPrices = data.klines.slice(-20).map(k => k.high);
-    const currentHigh = Math.max(...recentPrices);
-    const existingHigh = this.highPrices.get(symbol) || 0;
-    
-    if (currentHigh > existingHigh) {
-      this.highPrices.set(symbol, currentHigh);
-      
-      // 重置建仓记录（新高点，重新开始监控）
+  private createAdvancedSignal(
+    symbol: string,
+    side: OrderSide,
+    price: number,
+    quantity: number,
+    confidence: number,
+    reasoning: string,
+    type: AdvancedSignalType,
+    strength: SignalStrength
+  ): AdvancedSignal {
+    return {
+      id: `${symbol}_${Date.now()}`,
+      symbol,
+      side,
+      price,
+      quantity,
+      timestamp: Date.now(),
+      confidence: {
+        overall: confidence,
+        technical: confidence,
+        volume: 0.7,
+        momentum: 0.8
+      },
+      strength,
+      reasoning,
+      type,
+      metadata: {
+        strategy: this.name,
+        strategyVersion: '1.0.0'
+      }
+    };
+  }
+
+  /**
+   * 获取持仓信息的模拟方法
+   */
+  private async getPosition(symbol: string): Promise<{
+    isActive: boolean;
+    avgPrice: number;
+    totalQuantity: number;
+  } | null> {
+    // 这里应该从实际的持仓管理系统获取数据
+    // 暂时返回模拟数据
+    const buildingRecords = this.buildingRecords.get(symbol);
+    if (!buildingRecords || buildingRecords.length === 0) {
+      return null;
+    }
+
+    const totalCost = buildingRecords.reduce((sum, record) => sum + record.price * record.quantity, 0);
+    const totalQuantity = buildingRecords.reduce((sum, record) => sum + record.quantity, 0);
+    const avgPrice = totalCost / totalQuantity;
+
+    return {
+      isActive: true,
+      avgPrice,
+      totalQuantity
+    };
+  }
+
+  /**
+   * 获取当前持仓
+   */
+  private async getCurrentPositions(): Promise<Position[]> {
+    // 这里应该从实际的持仓管理系统获取数据
+    // 暂时返回模拟数据
+    const symbols = Array.from(this.buildingRecords.keys());
+    const positions: Position[] = [];
+
+    for (const symbol of symbols) {
+      const position = await this.getPosition(symbol);
+      if (position) {
+        positions.push({
+          symbol,
+          avgPrice: position.avgPrice,
+          totalQuantity: position.totalQuantity,
+          isActive: position.isActive
+        });
+      }
+    }
+
+    return positions;
+  }
+
+  /**
+   * 重置策略状态
+   */
+  async resetStrategy(symbol?: string): Promise<void> {
+    if (symbol) {
       this.buildingRecords.delete(symbol);
+      this.highPrices.delete(symbol);
+      this.lastBuildTime.delete(symbol);
       this.reductionFlags.delete(symbol);
-      
-      logger.info(`更新高点价格: ${symbol} ${currentHigh}`);
-    }
-  }
-
-  /**
-   * 确认价格走势
-   */
-  private confirmPriceMovement(data: MarketData, direction: 'UP' | 'DOWN'): boolean {
-    const confirmationPeriods = this.params.priceConfirmationPeriods;
-    if (data.klines.length < confirmationPeriods + 1) return false;
-
-    const recentPrices = data.klines.slice(-confirmationPeriods - 1).map(k => k.close);
-    
-    if (direction === 'DOWN') {
-      // 确认下跌趋势：最近几个周期整体下跌
-      let downCount = 0;
-      for (let i = 1; i < recentPrices.length; i++) {
-        if (recentPrices[i] < recentPrices[i - 1]) {
-          downCount++;
-        }
-      }
-      return downCount >= Math.floor(confirmationPeriods * 0.7); // 70%的周期下跌
+      logger.info(`重置策略状态: ${symbol}`);
     } else {
-      // 确认上涨趋势
-      let upCount = 0;
-      for (let i = 1; i < recentPrices.length; i++) {
-        if (recentPrices[i] > recentPrices[i - 1]) {
-          upCount++;
-        }
-      }
-      return upCount >= Math.floor(confirmationPeriods * 0.7);
+      this.buildingRecords.clear();
+      this.highPrices.clear();
+      this.lastBuildTime.clear();
+      this.reductionFlags.clear();
+      logger.info('重置所有策略状态');
     }
-  }
-
-  /**
-   * 计算建仓数量（金字塔式）
-   */
-  private calculateBuildingQuantity(buildLevel: number): number {
-    return Math.floor(this.params.basePositionSize * Math.pow(this.params.positionMultiplier, buildLevel - 1));
   }
 
   /**
@@ -361,10 +468,12 @@ export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
       const records = this.buildingRecords.get(symbol) || [];
       const highPrice = this.highPrices.get(symbol) || 0;
       const totalInvestment = records.reduce((sum, r) => sum + r.price * r.quantity, 0);
-      
+      const currentPrice = records[records.length - 1]?.price || highPrice;
+      const currentDrop = (highPrice - currentPrice) / highPrice;
+
       buildingProgress[symbol] = {
         highPrice,
-        currentDrop: 0, // 需要当前价格计算
+        currentDrop: currentDrop,
         buildingLevel: records.length,
         totalInvestment
       };
@@ -380,28 +489,9 @@ export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
   }
 
   /**
-   * 重置策略状态
-   */
-  async resetStrategy(symbol?: string): Promise<void> {
-    if (symbol) {
-      this.buildingRecords.delete(symbol);
-      this.highPrices.delete(symbol);
-      this.lastBuildTime.delete(symbol);
-      this.reductionFlags.delete(symbol);
-      logger.info(`重置策略状态: ${symbol}`);
-    } else {
-      this.buildingRecords.clear();
-      this.highPrices.clear();
-      this.lastBuildTime.clear();
-      this.reductionFlags.clear();
-      logger.info('重置所有策略状态');
-    }
-  }
-
-  /**
    * 更新策略参数
    */
-  updateParameters(newParams: Partial<LeftSideBuildingParams>): void {
+  updateParameters(newParams: Partial<LeftSideBuildingConfig>): void {
     this.params = { ...this.params, ...newParams };
     logger.info('更新策略参数', newParams);
   }
@@ -409,7 +499,7 @@ export class LeftSideBuildingStrategy extends AdvancedBaseStrategy {
   /**
    * 获取策略参数
    */
-  getParameters(): LeftSideBuildingParams {
+  getParameters(): LeftSideBuildingConfig {
     return { ...this.params };
   }
 

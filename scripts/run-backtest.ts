@@ -1,121 +1,126 @@
 #!/usr/bin/env ts-node
 /**
- * 快速回测启动脚本
- * 提供命令行界面来运行历史回测
+ * AI股票交易系统 - 回测运行脚本
+ * 支持单策略回测、参数优化、策略对比等功能
  */
 
-import { program } from 'commander';
+import { Command } from 'commander';
+import * as path from 'path';
+import * as fs from 'fs/promises';
 import { HistoricalBacktestRunner, HistoricalBacktestConfig } from '../src/backtest/runners/HistoricalBacktestRunner';
 import { MovingAverageStrategy } from '../src/strategies/traditional/MovingAverageStrategy';
 import { LeftSideBuildingStrategy } from '../src/strategies/advanced/LeftSideBuildingStrategy';
-import { createLogger } from '../src/utils/logger';
-import { DateUtils } from '../src/utils';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { BaseStrategy } from '../src/strategies/base/BaseStrategy';
 
-const logger = createLogger('BACKTEST_CLI');
-
-// 可用策略映射
-const STRATEGIES = {
-  'ma': MovingAverageStrategy,
-  'moving-average': MovingAverageStrategy,
-  'leftside': LeftSideBuildingStrategy,
-  'left-side-building': LeftSideBuildingStrategy
-};
-
-interface CliOptions {
-  strategy: string;
-  symbol: string;
-  interval: string;
-  years: number;
-  capital: number;
-  config?: string;
-  optimize: boolean;
-  report: string;
-  output: string;
-  cache: boolean;
-  verbose: boolean;
-}
+const program = new Command();
 
 /**
- * 解析命令行参数
+ * 策略类型定义
+ */
+type StrategyConstructor = new (config: any) => BaseStrategy;
+
+/**
+ * 策略映射
+ */
+const STRATEGIES: Record<string, StrategyConstructor> = {
+  'ma': MovingAverageStrategy as StrategyConstructor,
+  'moving-average': MovingAverageStrategy as StrategyConstructor,
+  'leftside': LeftSideBuildingStrategy as StrategyConstructor,
+  'left-side-building': LeftSideBuildingStrategy as StrategyConstructor
+};
+
+/**
+ * 设置命令行参数
  */
 function setupCommander(): void {
   program
-    .name('backtest')
-    .description('AI股票交易系统 - 历史回测工具')
+    .name('run-backtest')
+    .description('AI股票交易系统回测工具')
     .version('1.0.0');
 
+  // 基础回测命令
   program
-    .option('-s, --strategy <strategy>', '策略名称 (ma, leftside)', 'ma')
-    .option('--symbol <symbol>', '交易品种', 'BTCUSDT')
-    .option('-i, --interval <interval>', 'K线间隔', '1h')
-    .option('-y, --years <years>', '回测年数', '2')
-    .option('-c, --capital <capital>', '初始资金', '100000')
-    .option('--config <config>', '策略配置文件路径')
-    .option('-o, --optimize', '启用参数优化', false)
-    .option('-r, --report <format>', '报告格式 (html, markdown, json)', 'html')
-    .option('--output <path>', '输出目录', './reports')
-    .option('--cache', '启用数据缓存', true)
-    .option('-v, --verbose', '详细输出', false)
-    .action(runBacktest);
+    .command('run')
+    .description('运行回测')
+    .requiredOption('-s, --strategy <strategy>', '策略名称 (ma, leftside)')
+    .requiredOption('--symbol <symbol>', '交易品种', 'BTCUSDT')
+    .option('--interval <interval>', 'K线周期', '1h')
+    .option('--years <years>', '历史数据年数', '2')
+    .option('--capital <capital>', '初始资金', '100000')
+    .option('--output <output>', '输出目录', './reports')
+    .option('--report <format>', '报告格式 (html, markdown, json)', 'html')
+    .option('--cache', '启用数据缓存', false)
+    .option('--optimize', '启用参数优化', false)
+    .option('--config <config>', '配置文件路径')
+    .action(async (options) => {
+      await runSingleBacktest(options);
+    });
 
-  program
-    .command('list-strategies')
-    .description('列出可用策略')
-    .action(listStrategies);
-
+  // 参数优化命令
   program
     .command('optimize <strategy>')
     .description('运行参数优化')
-    .option('--symbol <symbol>', '交易品种', 'BTCUSDT')
-    .option('-i, --interval <interval>', 'K线间隔', '4h')
-    .option('-y, --years <years>', '回测年数', '1.5')
-    .option('--metric <metric>', '优化目标指标', 'sharpeRatio')
-    .action(runOptimization);
+    .requiredOption('--symbol <symbol>', '交易品种', 'BTCUSDT')
+    .option('--interval <interval>', 'K线周期', '1h')
+    .option('--years <years>', '历史数据年数', '2')
+    .option('--metric <metric>', '优化目标 (sharpeRatio, totalReturn, maxDrawdown)', 'sharpeRatio')
+    .action(async (strategy, options) => {
+      await runOptimization(strategy, options);
+    });
 
+  // 策略对比命令
   program
     .command('compare')
-    .description('批量对比多个策略')
-    .option('--symbol <symbol>', '交易品种', 'BTCUSDT')
-    .option('-i, --interval <interval>', 'K线间隔', '1h')
-    .option('-y, --years <years>', '回测年数', '1')
-    .action(runComparison);
+    .description('运行策略对比')
+    .requiredOption('--symbol <symbol>', '交易品种', 'BTCUSDT')
+    .option('--interval <interval>', 'K线周期', '1h')
+    .option('--years <years>', '历史数据年数', '2')
+    .action(async (options) => {
+      await runComparison(options);
+    });
 
+  // 列出策略命令
+  program
+    .command('list')
+    .description('列出可用策略')
+    .action(() => {
+      listStrategies();
+    });
+
+  // 缓存管理命令
   program
     .command('cache')
     .description('缓存管理')
-    .option('--clear', '清理缓存')
-    .option('--stats', '显示缓存统计')
-    .option('--days <days>', '清理N天前的缓存', '7')
-    .action(manageCache);
+    .option('--clear', '清理缓存', false)
+    .option('--stats', '显示缓存统计', false)
+    .option('--days <days>', '清理天数', '7')
+    .action(async (options) => {
+      await manageCache(options);
+    });
 }
 
 /**
- * 运行基础回测
+ * 运行单个回测
  */
-async function runBacktest(options: CliOptions): Promise<void> {
+async function runSingleBacktest(options: any): Promise<void> {
   try {
-    console.log('🚀 启动历史回测...');
-    console.log(`策略: ${options.strategy}`);
-    console.log(`品种: ${options.symbol}`);
-    console.log(`周期: ${options.interval}`);
-    console.log(`年数: ${options.years}`);
-    console.log(`资金: $${parseInt(options.capital.toString()).toLocaleString()}`);
-    console.log('');
-
-    // 检查策略是否存在
+    console.log(`🚀 启动回测: ${options.strategy} - ${options.symbol}`);
+    
+    // 获取策略类
     const StrategyClass = STRATEGIES[options.strategy as keyof typeof STRATEGIES];
     if (!StrategyClass) {
-      throw new Error(`未知策略: ${options.strategy}. 可用策略: ${Object.keys(STRATEGIES).join(', ')}`);
+      throw new Error(`未知策略: ${options.strategy}，可用策略: ${Object.keys(STRATEGIES).join(', ')}`);
     }
 
     // 加载策略配置
-    let strategyConfig = getDefaultStrategyConfig(options.strategy);
+    let strategyConfig: any;
     if (options.config) {
-      const customConfig = await loadConfigFile(options.config);
-      strategyConfig = { ...strategyConfig, ...customConfig };
+      strategyConfig = await loadConfigFile(options.config);
+    } else {
+      strategyConfig = getDefaultStrategyConfig(options.strategy);
     }
+
+    console.log(`📊 策略配置:`, JSON.stringify(strategyConfig, null, 2));
 
     // 创建回测配置
     const backtestConfig: HistoricalBacktestConfig = {
@@ -179,7 +184,7 @@ async function runBacktest(options: CliOptions): Promise<void> {
     }
 
   } catch (error) {
-    console.error('❌ 回测失败:', error.message);
+    console.error('❌ 回测失败:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
@@ -257,6 +262,7 @@ async function runOptimization(strategyName: string, options: any): Promise<void
         expireHours: 12
       }
     };
+    
     const runner = new HistoricalBacktestRunner();
     const result = await runner.runHistoricalBacktest(config);
 
@@ -271,15 +277,17 @@ async function runOptimization(strategyName: string, options: any): Promise<void
       });
 
       console.log('\n📊 参数敏感性:');
-      Object.entries(result.optimization.sensitivity).forEach(([param, sensitivity]) => {
-        console.log(`   ${param}: 影响度 ${(sensitivity.impact * 100).toFixed(1)}%`);
+      Object.entries(result.optimization.sensitivity).forEach(([param, sensitivityData]) => {
+        const sensitivity = sensitivityData as any;
+        const impact = typeof sensitivity === 'object' && sensitivity.impact ? sensitivity.impact : sensitivity;
+        console.log(`   ${param}: 影响度 ${(Number(impact) * 100).toFixed(1)}%`);
       });
     }
 
     console.log(`\n📋 报告文件: ${result.reportPath}`);
 
   } catch (error) {
-    console.error('❌ 参数优化失败:', error.message);
+    console.error('❌ 参数优化失败:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
@@ -349,7 +357,7 @@ async function runComparison(options: any): Promise<void> {
     });
 
   } catch (error) {
-    console.error('❌ 策略对比失败:', error.message);
+    console.error('❌ 策略对比失败:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
@@ -361,6 +369,7 @@ async function manageCache(options: any): Promise<void> {
   try {
     const runner = new HistoricalBacktestRunner();
     const cacheDir = './cache/backtest';
+    
     if (options.stats) {
       console.log('📊 缓存统计:');
       const stats = await runner.getCacheStats(cacheDir);
@@ -377,7 +386,7 @@ async function manageCache(options: any): Promise<void> {
     }
 
   } catch (error) {
-    console.error('❌ 缓存管理失败:', error.message);
+    console.error('❌ 缓存管理失败:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
