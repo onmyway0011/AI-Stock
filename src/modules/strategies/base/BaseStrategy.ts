@@ -3,19 +3,19 @@
  * 定义所有交易策略的通用接口和基础功能
  */
 
-import { 
-  IStrategy, 
-  StrategyConfig, 
-  StrategyStatus, 
-  MarketData, 
-  Signal, 
-  OrderSide, 
+import {
+  IStrategy,
+  StrategyConfig,
+  StrategyStatus,
+  MarketData,
+  Signal,
+  OrderSide,
   SignalStrength,
   StrategyError,
   RiskManagementConfig,
   TradingConfig
-} from '../../types';
-import { MathUtils, DateUtils, ValidationUtils } from '../../utils';
+} from '../../../shared/types';
+import { MathUtils, DateUtils, ValidationUtils } from '../../../shared/utils';
 
 /**
  * 策略状态枚举
@@ -65,6 +65,9 @@ export interface StrategyPerformance {
 /**
  * 策略基类
  * 提供通用的策略功能和生命周期管理
+ * @abstract
+ * @class BaseStrategy
+ * @implements IStrategy
  */
 export abstract class BaseStrategy implements IStrategy {
   public readonly name: string;
@@ -145,12 +148,15 @@ export abstract class BaseStrategy implements IStrategy {
   /**
    * 抽象方法：生成交易信号
    * 子类必须实现此方法
+   * @param data 市场数据
+   * @returns 交易信号或 null
    */
   abstract generateSignal(data: MarketData): Promise<Signal | null>;
 
   /**
    * 更新策略参数
    * @param parameters 新参数
+   * @returns void
    */
   updateParameters(parameters: Record<string, any>): void {
     try {
@@ -520,6 +526,8 @@ export abstract class BaseStrategy implements IStrategy {
 
   /**
    * 验证配置
+   * @private
+   * @returns void
    */
   private validateConfig(): void {
     if (!this.config.name) {

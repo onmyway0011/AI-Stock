@@ -1,6 +1,8 @@
 /**
  * 交易信号生成器
  * 实现置信度判断、信号生成和价格建议
+ * @class TradingSignalGenerator
+ * @extends BaseSignalGenerator
  */
 
 import {
@@ -16,9 +18,9 @@ import {
   SignalConfig,
   SignalFilter,
   NotificationChannel
-} from '../../types/signal';
-import { MarketData, Kline } from '../../types';
-import { MathUtils, createLogger } from '../../utils';
+} from '../../../shared/types/signal';
+import { MarketData, Kline } from '../../../shared/types';
+import { MathUtils, createLogger } from '../../../shared/utils';
 import { BaseSignalGenerator } from './BaseSignalGenerator';
 
 const logger = createLogger('TRADING_SIGNAL_GENERATOR');
@@ -73,6 +75,8 @@ export class TradingSignalGenerator extends BaseSignalGenerator {
 
   /**
    * 生成交易信号
+   * @param marketData 市场数据
+   * @returns 交易信号或 null
    */
   async generateSignal(marketData: MarketData): Promise<TradingSignal | null> {
     try {
@@ -542,6 +546,10 @@ export class TradingSignalGenerator extends BaseSignalGenerator {
 
   /**
    * 风险评估
+   * @param indicators 技术指标
+   * @param market 市场状态
+   * @param priceSuggestion 价格建议
+   * @returns 风险评估结果
    */
   private assessRisk(
     indicators: TechnicalIndicators,
@@ -751,6 +759,10 @@ export class TradingSignalGenerator extends BaseSignalGenerator {
 
   /**
    * 生成信号原因
+   * @param signalType 信号类型
+   * @param indicators 技术指标
+   * @param confidence 置信度分析
+   * @returns 原因字符串
    */
   private generateSignalReason(signalType: SignalType, indicators: TechnicalIndicators, confidence: ConfidenceAnalysis): string {
     const reasons: string[] = [];

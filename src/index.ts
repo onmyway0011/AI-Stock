@@ -16,13 +16,10 @@ export * from './shared';
 export * from './apps';
 
 // 向后兼容：重新导出原有的核心类
-export { TradingSignalGenerator } from './signals/generators/TradingSignalGenerator';
-export { SignalService } from './signals/SignalService';
-export { NotificationManager } from './notifications/NotificationManager';
-export { BacktestEngine } from './backtest/engine/BacktestEngine';
-export { BinanceCollector } from './data/collectors/BinanceCollector';
-export { MovingAverageStrategy } from './strategies/traditional/MovingAverageStrategy';
-export { LeftSideBuildingStrategy } from './strategies/advanced/LeftSideBuildingStrategy';
+export { TradingSignalGenerator } from './modules/signals/generators/TradingSignalGenerator';
+export { SignalService } from './modules/signals/SignalService';
+export { NotificationManager } from './modules/notifications/NotificationManager';
+export { BacktestEngine } from './modules/backtest/engine/BacktestEngine';
 
 // 版本信息
 export const VERSION = '1.0.0';
@@ -45,18 +42,8 @@ export function createTradingSystem(config?: any) {
       backtestEngine: new BacktestEngine(config?.backtest),
     };
   } catch (error) {
-    // 回退到原有架构
-    const TradingSignalGenerator = require('./signals/generators/TradingSignalGenerator').TradingSignalGenerator;
-    const SignalService = require('./signals/SignalService').SignalService;
-    const NotificationManager = require('./notifications/NotificationManager').NotificationManager;
-    const BacktestEngine = require('./backtest/engine/BacktestEngine').BacktestEngine;
-    
-    return {
-      signalGenerator: new TradingSignalGenerator(config?.signal),
-      signalService: new SignalService(config?.service),
-      notificationManager: new NotificationManager(config?.notification),
-      backtestEngine: new BacktestEngine(config?.backtest),
-    };
+    // 回退到原有架构（已移除，直接抛出异常）
+    throw new Error('核心模块已统一到 modules/ 目录，请检查引用路径。');
   }
 }
 
@@ -81,26 +68,12 @@ export const ARCHITECTURE_INFO = {
  * 展示系统的完整使用示例和启动流程
  */
 
-import { config, validateConfig } from './config';
-import { BinanceCollector } from './data/collectors/BinanceCollector';
-import { MovingAverageStrategy } from './strategies/traditional/MovingAverageStrategy';
-import { BaseSignalGenerator } from './signals/generators/BaseSignalGenerator';
-import { 
-  StrategyConfig,
-  BacktestConfig, 
-  MarketData, 
-  Signal,
-  OrderSide,
-  SignalStrength
-} from './types';
-import { DateUtils, FormatUtils } from './utils';
-
 /**
  * 示例信号生成器
  */
-class ExampleSignalGenerator extends BaseSignalGenerator {
-  async generateSignals(data: MarketData): Promise<Signal[]> {
-    const signals: Signal[] = [];
+class ExampleSignalGenerator {
+  async generateSignals(data: any): Promise<any[]> {
+    const signals: any[] = [];
     
     if (data.klines.length < 20) {
       return signals;
@@ -116,27 +89,29 @@ class ExampleSignalGenerator extends BaseSignalGenerator {
 
     // 突破上轨
     if (currentPrice > recentHigh * 1.02) {
-      const signal = this.createSignal(
-        symbol,
-        OrderSide.BUY,
-        currentPrice,
-        0.75,
-        `价格突破近期高点 ${FormatUtils.formatPrice(recentHigh)}`,
-        SignalStrength.STRONG
-      );
+      const signal = {
+        id: `signal-${Date.now()}`,
+        symbol: symbol,
+        side: 'BUY',
+        price: currentPrice,
+        confidence: 0.75,
+        reason: `价格突破近期高点 ${FormatUtils.formatPrice(recentHigh)}`,
+        strength: 'STRONG'
+      };
       signals.push(signal);
     }
 
     // 跌破下轨
     if (currentPrice < recentLow * 0.98) {
-      const signal = this.createSignal(
-        symbol,
-        OrderSide.SELL,
-        currentPrice,
-        0.70,
-        `价格跌破近期低点 ${FormatUtils.formatPrice(recentLow)}`,
-        SignalStrength.MODERATE
-      );
+      const signal = {
+        id: `signal-${Date.now()}`,
+        symbol: symbol,
+        side: 'SELL',
+        price: currentPrice,
+        confidence: 0.70,
+        reason: `价格跌破近期低点 ${FormatUtils.formatPrice(recentLow)}`,
+        strength: 'MODERATE'
+      };
       signals.push(signal);
     }
 
@@ -314,7 +289,7 @@ class TradingSystemApp {
 
       // 生成信号
       console.log('运行信号生成器...');
-      const signals = await this.signalGenerator.processMarketData(marketData);
+      const signals = await this.signalGenerator.generateSignals(marketData);
       if (signals.length > 0) {
         console.log(`✅ 生成 ${signals.length} 个信号:`);
         signals.forEach((signal, i) => {
@@ -331,7 +306,13 @@ class TradingSystemApp {
       }
 
       // 显示生成器状态
-      const status = this.signalGenerator.getStatus();
+      const status = {
+        isEnabled: true, // 示例生成器始终启用
+        activeSignals: 0, // 示例生成器不跟踪活跃信号
+        totalSignalsGenerated: 0, // 示例生成器不跟踪总生成数
+        successRate: 0, // 示例生成器不跟踪成功率
+        avgConfidence: 0 // 示例生成器不跟踪平均置信度
+      };
       console.log('\n生成器状态:');
       console.log(`   启用状态: ${status.isEnabled ? '已启用' : '已禁用'}`);
       console.log(`   活跃信号: ${status.activeSignals} 个`);
@@ -454,7 +435,7 @@ class TradingSystemApp {
     }
     
     if (this.signalGenerator) {
-      this.signalGenerator.destroy();
+      // 示例生成器没有 destroy 方法
     }
     
     if (this.backtestEngine) {

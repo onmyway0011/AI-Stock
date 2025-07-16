@@ -1,6 +1,7 @@
 /**
  * 回测引擎
  * 实现策略历史数据回测和性能分析
+ * @class BacktestEngine
  */
 
 import {
@@ -154,6 +155,8 @@ export class BacktestEngine {
 
   /**
    * 验证配置
+   * @private
+   * @returns void
    */
   private validateConfig(): void {
     if (!this.config.strategy) {
@@ -623,6 +626,8 @@ export class BacktestEngine {
 
   /**
    * 计算性能指标
+   * @private
+   * @returns PerformanceMetrics 性能指标对象
    */
   private calculatePerformanceMetrics(): PerformanceMetrics {
     const equityValues = this.equityCurve.map(p => p.equity);

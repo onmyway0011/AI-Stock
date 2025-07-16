@@ -1,6 +1,7 @@
 /**
  * 通知管理器
  * 统一管理多个通知通道，支持消息通知开关控制
+ * @class NotificationManager
  */
 
 import {
@@ -111,6 +112,8 @@ export class NotificationManager {
 
   /**
    * 发送信号通知
+   * @param signal 交易信号
+   * @returns Promise<boolean> 发送成功返回true，失败返回false
    */
   async sendSignalNotification(signal: TradingSignal): Promise<boolean> {
     try {
@@ -144,6 +147,11 @@ export class NotificationManager {
 
   /**
    * 发送自定义通知
+   * @param title 通知标题
+   * @param content 通知内容
+   * @param channels 可选，指定发送的通道，默认为配置的启用的通道
+   * @param priority 可选，通知优先级，默认为MEDIUM
+   * @returns Promise<boolean> 发送成功返回true，失败返回false
    */
   async sendCustomNotification(
     title: string,
@@ -185,6 +193,7 @@ export class NotificationManager {
 
   /**
    * 添加通知通道
+   * @param channel 通知通道实例
    */
   addChannel(channel: BaseNotificationChannel): void {
     const type = channel.getChannelType();
@@ -204,6 +213,7 @@ export class NotificationManager {
 
   /**
    * 移除通知通道
+   * @param channelType 通道类型
    */
   removeChannel(channelType: NotificationChannel): void {
     const channel = this.channels.get(channelType);
@@ -216,6 +226,7 @@ export class NotificationManager {
 
   /**
    * 启用/禁用通知
+   * @param enabled 是否启用通知
    */
   setEnabled(enabled: boolean): void {
     this.config.enabled = enabled;
@@ -224,6 +235,8 @@ export class NotificationManager {
 
   /**
    * 设置静默时间
+   * @param start 开始时间 (HH:mm格式)
+   * @param end 结束时间 (HH:mm格式)
    */
   setQuietHours(start: string, end: string): void {
     this.config.quietHours = { start, end };
@@ -232,6 +245,7 @@ export class NotificationManager {
 
   /**
    * 设置每日最大通知数量
+   * @param max 每日最大通知数量
    */
   setMaxDailyNotifications(max: number): void {
     this.config.maxDailyNotifications = max;
@@ -240,6 +254,7 @@ export class NotificationManager {
 
   /**
    * 获取统计信息
+   * @returns NotificationStatistics 通知统计信息
    */
   getStatistics(): NotificationStatistics {
     // 更新队列状态
@@ -253,6 +268,7 @@ export class NotificationManager {
 
   /**
    * 获取通道状态
+   * @returns Record<string, any> 所有通道的状态
    */
   getChannelStatuses(): Record<string, any> {
     const statuses: Record<string, any> = {};
@@ -271,6 +287,7 @@ export class NotificationManager {
 
   /**
    * 执行健康检查
+   * @returns Promise<Record<string, boolean>> 所有通道的健康检查结果
    */
   async performHealthCheck(): Promise<Record<string, boolean>> {
     const results: Record<string, boolean> = {};
@@ -306,6 +323,7 @@ export class NotificationManager {
 
   /**
    * 更新配置
+   * @param newConfig 新的配置
    */
   updateConfig(newConfig: Partial<NotificationConfig>): void {
     this.config = { ...this.config, ...newConfig };
@@ -320,6 +338,7 @@ export class NotificationManager {
 
   /**
    * 导出配置
+   * @returns NotificationConfig 当前配置
    */
   exportConfig(): NotificationConfig {
     return { ...this.config };
@@ -329,6 +348,8 @@ export class NotificationManager {
 
   /**
    * 初始化统计信息
+   * @private
+   * @returns NotificationStatistics 初始化的统计信息
    */
   private initStatistics(): NotificationStatistics {
     return {
@@ -347,6 +368,7 @@ export class NotificationManager {
 
   /**
    * 初始化通知通道
+   * @private
    */
   private initializeChannels(): void {
     // 清除现有通道
@@ -371,6 +393,7 @@ export class NotificationManager {
 
   /**
    * 启动队列处理器
+   * @private
    */
   private startQueueProcessor(): void {
     setInterval(() => {
@@ -382,6 +405,7 @@ export class NotificationManager {
 
   /**
    * 处理消息队列
+   * @private
    */
   private async processQueue(): Promise<void> {
     if (this.isProcessing) return;
@@ -407,6 +431,8 @@ export class NotificationManager {
 
   /**
    * 处理队列中的单个消息
+   * @private
+   * @param item 消息队列项
    */
   private async processQueueItem(item: QueueItem): Promise<void> {
     const { message, signal, channels } = item;
@@ -479,6 +505,9 @@ export class NotificationManager {
 
   /**
    * 判断是否应该发送通知
+   * @private
+   * @param signal 交易信号
+   * @returns boolean 是否应该发送
    */
   private shouldSendNotification(signal: TradingSignal): boolean {
     // 检查通知开关
@@ -520,6 +549,8 @@ export class NotificationManager {
 
   /**
    * 检查是否在静默时间
+   * @private
+   * @returns boolean 是否在静默时间
    */
   private isInQuietHours(): boolean {
     if (!this.config.quietHours) {
@@ -542,6 +573,8 @@ export class NotificationManager {
 
   /**
    * 检查每日限制是否达到
+   * @private
+   * @returns boolean 是否达到每日限制
    */
   private isDailyLimitReached(): boolean {
     this.checkDateReset();
@@ -555,6 +588,7 @@ export class NotificationManager {
 
   /**
    * 检查日期重置
+   * @private
    */
   private checkDateReset(): void {
     const today = new Date().toDateString();
@@ -567,6 +601,7 @@ export class NotificationManager {
 
   /**
    * 更新每日计数
+   * @private
    */
   private updateDailyCount(): void {
     this.checkDateReset();
@@ -576,6 +611,9 @@ export class NotificationManager {
 
   /**
    * 创建通知消息
+   * @private
+   * @param signal 交易信号
+   * @returns NotificationMessage 通知消息
    */
   private createNotificationMessage(signal: TradingSignal): NotificationMessage {
     const title = this.generateMessageTitle(signal);
@@ -596,6 +634,9 @@ export class NotificationManager {
 
   /**
    * 生成消息标题
+   * @private
+   * @param signal 交易信号
+   * @returns string 消息标题
    */
   private generateMessageTitle(signal: TradingSignal): string {
     const action = signal.type === 'BUY' ? '买入' : '卖出';
@@ -605,6 +646,9 @@ export class NotificationManager {
 
   /**
    * 生成消息内容
+   * @private
+   * @param signal 交易信号
+   * @returns string 消息内容
    */
   private generateMessageContent(signal: TradingSignal): string {
     const action = signal.type === 'BUY' ? '买入' : '卖出';
@@ -629,6 +673,9 @@ export class NotificationManager {
 
   /**
    * 翻译信号强度
+   * @private
+   * @param strength 信号强度
+   * @returns string 翻译后的强度
    */
   private translateStrength(strength: string): string {
     const map: Record<string, string> = {
@@ -643,6 +690,9 @@ export class NotificationManager {
 
   /**
    * 确定发送通道
+   * @private
+   * @param signal 交易信号
+   * @returns NotificationChannel[] 确定的发送通道
    */
   private determineChannels(signal: TradingSignal): NotificationChannel[] {
     if (signal.notificationChannels && signal.notificationChannels.length > 0) {
@@ -656,6 +706,11 @@ export class NotificationManager {
 
   /**
    * 添加到队列
+   * @private
+   * @param message 通知消息
+   * @param signal 交易信号
+   * @param channels 发送通道
+   * @param priority 优先级
    */
   private addToQueue(
     message: NotificationMessage,
@@ -677,6 +732,9 @@ export class NotificationManager {
 
   /**
    * 获取优先级数值
+   * @private
+   * @param priority 通知优先级
+   * @returns number 优先级数值
    */
   private getPriorityValue(priority: string): number {
     const map: Record<string, number> = {
@@ -690,6 +748,9 @@ export class NotificationManager {
 
   /**
    * 更新通道统计
+   * @private
+   * @param channelType 通道类型
+   * @param success 发送是否成功
    */
   private updateChannelStats(channelType: NotificationChannel, success: boolean): void {
     const stats = this.statistics.channelStats[channelType];
@@ -706,6 +767,8 @@ export class NotificationManager {
 
   /**
    * 更新全局统计
+   * @private
+   * @param success 发送是否成功
    */
   private updateGlobalStats(success: boolean): void {
     this.statistics.totalSent++;
@@ -718,6 +781,8 @@ export class NotificationManager {
 
   /**
    * 生成消息ID
+   * @private
+   * @returns string 消息ID
    */
   private generateMessageId(): string {
     return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

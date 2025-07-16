@@ -1,6 +1,7 @@
 /**
  * 回测报告生成器
- * 生成详细的回测报告，包括图表、统计分析和风险评估
+ * 负责分析回测结果并生成报告
+ * @class BacktestReportGenerator
  */
 
 import { BacktestResult, EquityPoint, Trade } from '../engine/BacktestEngine';
@@ -78,6 +79,9 @@ export class BacktestReportGenerator {
 
   /**
    * 生成完整报告
+   * @public
+   * @param result 回测结果
+   * @returns 报告字符串
    */
   async generateReport(result: BacktestResult): Promise<string> {
     logger.info(`开始生成回测报告: ${this.config.format}`);
@@ -113,6 +117,9 @@ export class BacktestReportGenerator {
 
   /**
    * 分析回测结果
+   * @private
+   * @param result 回测结果
+   * @returns 分析对象
    */
   private analyzeResults(result: BacktestResult): {
     performanceGrade: string;
@@ -204,6 +211,9 @@ export class BacktestReportGenerator {
 
   /**
    * 生成图表数据
+   * @private
+   * @param result 回测结果
+   * @returns 图表数据对象
    */
   private generateChartData(result: BacktestResult): ChartData {
     // 资金曲线图
@@ -258,6 +268,11 @@ export class BacktestReportGenerator {
 
   /**
    * 生成HTML报告
+   * @private
+   * @param result 回测结果
+   * @param analysis 分析结果
+   * @param chartData 图表数据
+   * @returns HTML字符串
    */
   private generateHTMLReport(
     result: BacktestResult,
@@ -545,6 +560,9 @@ export class BacktestReportGenerator {
 
   /**
    * 生成交易详情HTML
+   * @private
+   * @param trades 交易记录数组
+   * @returns HTML字符串
    */
   private generateTradeDetailsHTML(trades: Trade[]): string {
     const recentTrades = trades.slice(-50); // 只显示最近50笔交易
@@ -581,6 +599,9 @@ export class BacktestReportGenerator {
 
   /**
    * 生成月度分析HTML
+   * @private
+   * @param monthlyReturns 月度收益数据
+   * @returns HTML字符串
    */
   private generateMonthlyAnalysisHTML(monthlyReturns: { [month: string]: number }): string {
     const months = Object.keys(monthlyReturns).sort();
@@ -604,6 +625,10 @@ export class BacktestReportGenerator {
 
   /**
    * 生成Markdown报告
+   * @private
+   * @param result 回测结果
+   * @param analysis 分析结果
+   * @returns Markdown字符串
    */
   private generateMarkdownReport(
     result: BacktestResult,
@@ -680,6 +705,11 @@ ${analysis.recommendations.map(r => `- ${r}`).join('\n')}
 
   /**
    * 生成JSON报告
+   * @private
+   * @param result 回测结果
+   * @param analysis 分析结果
+   * @param chartData 图表数据
+   * @returns JSON字符串
    */
   private generateJSONReport(
     result: BacktestResult,
@@ -711,6 +741,9 @@ ${analysis.recommendations.map(r => `- ${r}`).join('\n')}
 
   /**
    * 计算回撤序列
+   * @private
+   * @param equityCurve 资金曲线数据点
+   * @returns 回撤序列数组
    */
   private calculateDrawdownSeries(equityCurve: EquityPoint[]): number[] {
     const drawdowns: number[] = [];
@@ -730,6 +763,9 @@ ${analysis.recommendations.map(r => `- ${r}`).join('\n')}
 
   /**
    * 生成月度热力图数据
+   * @private
+   * @param monthlyReturns 月度收益数据
+   * @returns 热力图数据对象
    */
   private generateMonthlyHeatmapData(monthlyReturns: { [month: string]: number }): {
     years: string[];
@@ -766,6 +802,9 @@ ${analysis.recommendations.map(r => `- ${r}`).join('\n')}
 
   /**
    * 生成收益分布数据
+   * @private
+   * @param equityCurve 资金曲线数据点
+   * @returns 收益分布数据对象
    */
   private generateReturnsDistribution(equityCurve: EquityPoint[]): {
     bins: string[];
@@ -806,6 +845,10 @@ ${analysis.recommendations.map(r => `- ${r}`).join('\n')}
 
   /**
    * 计算滚动夏普比率
+   * @private
+   * @param equityCurve 资金曲线数据点
+   * @param window 滚动窗口大小 (默认252天)
+   * @returns 滚动夏普比率数据对象
    */
   private calculateRollingSharpeRatio(equityCurve: EquityPoint[], window: number = 252): {
     labels: string[];
