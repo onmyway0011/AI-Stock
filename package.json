@@ -1,7 +1,7 @@
 {
   "name": "ai-stock-trading-system",
-  "version": "1.0.0",
-  "description": "Advanced AI-powered stock trading system with real-time data collection, intelligent strategies, and comprehensive backtesting",
+  "version": "1.2.0",
+  "description": "AI-powered stock trading system with intelligent signal generation and automated trading strategies",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -11,80 +11,139 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:sina": "jest --testPathPattern=sina-finance",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts",
-    "clean": "rm -rf dist",
-    "prepare": "npm run build",
-    "demo:data": "ts-node examples/data-collection-demo.ts",
-    "demo:strategies": "ts-node examples/advanced-strategy-demo.ts",
-    "demo:backtest": "ts-node examples/run-demo.ts",
+    "type-check": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "prebuild": "npm run clean",
+    "demo": "npm run demo:all",
+    "demo:all": "npm run build && npm run demo:data && npm run demo:signal && npm run demo:strategy && npm run demo:backtest && npm run demo:sina",
+    "demo:data": "node dist/examples/data-collection-demo.js",
+    "demo:signal": "node dist/examples/signal-system-demo.js",
+    "demo:strategy": "node dist/examples/advanced-strategy-demo.js",
+    "demo:backtest": "node dist/examples/historical-backtest-demo.js",
+    "demo:sina": "node dist/examples/sina-finance-demo.js",
+    "demo:run": "node dist/examples/run-demo.js",
     "backtest": "ts-node scripts/run-backtest.ts",
-    "backtest:basic": "ts-node examples/historical-backtest-demo.ts",
-    "backtest:demo": "ts-node examples/historical-backtest-demo.ts",
-    "backtest:optimize": "ts-node scripts/run-backtest.ts optimize",
-    "backtest:compare": "ts-node scripts/run-backtest.ts compare",
-    "backtest:cache": "ts-node scripts/run-backtest.ts cache",
-    "precommit": "npm run lint && npm run test",
-    "postinstall": "npm run build",
+    "backtest:ma": "npm run backtest -- run -s ma --symbol BTCUSDT --years 2",
+    "backtest:leftside": "npm run backtest -- run -s leftside --symbol BTCUSDT --years 2",
+    "backtest:compare": "npm run backtest -- compare --symbol BTCUSDT --years 2",
+    "backtest:optimize": "npm run backtest -- optimize ma --symbol BTCUSDT --years 2",
+    "auto-fix": "ts-node scripts/auto-test-fix.ts",
     "docker:build": "docker build -t ai-stock-trading .",
     "docker:run": "docker run -p 3000:3000 ai-stock-trading",
-    "docker:dev": "docker-compose up --build"
+    "docker:compose": "docker-compose up -d",
+    "docker:logs": "docker-compose logs -f",
+    "docker:stop": "docker-compose down",
+    "sina:demo": "npm run build && node dist/examples/sina-finance-demo.js",
+    "sina:test": "npm run test:sina",
+    "sina:cli": "npm run build && node dist/src/apps/cli/sina-cli.js",
+    "sina:price": "npm run sina:cli price",
+    "sina:hot": "npm run sina:cli hot",
+    "sina:search": "npm run sina:cli search",
+    "sina:monitor": "npm run sina:cli monitor",
+    "sina:market": "npm run sina:cli market",
+    "stock:search": "ts-node -e \"import('./src/data/collectors/SinaFinanceCollector').then(m => { const c = new m.SinaFinanceCollector(); c.start().then(() => c.searchStocks(process.argv[2] || '银行')).then(console.log).finally(() => c.stop()); })\"",
+    "stock:price": "ts-node -e \"import('./src/data/collectors/SinaFinanceCollector').then(m => { const c = new m.SinaFinanceCollector(); c.start().then(() => c.getRealTimeData([process.argv[2] || '600036'])).then(console.log).finally(() => c.stop()); })\"",
+    "prepare": "husky install || true"
+  },
+  "bin": {
+    "sina-cli": "./dist/src/apps/cli/sina-cli.js"
   },
   "keywords": [
-    "trading",
     "ai",
     "stock",
+    "trading",
+    "algorithmic",
+    "quantitative",
+    "machine-learning",
+    "technical-analysis",
+    "financial",
+    "investment",
     "cryptocurrency",
     "binance",
-    "strategy",
-    "backtest",
-    "technical-analysis",
-    "machine-learning",
-    "typescript"
+    "sina-finance",
+    "a-shares",
+    "chinese-stocks",
+    "real-time",
+    "backtesting",
+    "signals",
+    "notifications",
+    "wechat",
+    "typescript",
+    "nodejs"
   ],
-  "author": "AI Trading Team",
+  "author": "AI Stock Trading Team",
   "license": "MIT",
-  "dependencies": {
-    "axios": "^1.6.0",
-    "commander": "^11.1.0",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "lodash": "^4.17.21",
-    "mathjs": "^12.2.0",
-    "moment": "^2.29.4",
-    "node-cron": "^3.0.2",
-    "redis": "^4.6.0",
-    "sqlite3": "^5.1.6",
-    "winston": "^3.11.0",
-    "ws": "^8.14.0"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/onmyway0011/AI-Stock.git"
+  },
+  "bugs": {
+    "url": "https://github.com/onmyway0011/AI-Stock/issues"
+  },
+  "homepage": "https://github.com/onmyway0011/AI-Stock#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/jest": "^29.5.14",
-    "@types/lodash": "^4.14.201",
-    "@types/node": "^20.9.0",
-    "@types/ws": "^8.5.9",
-    "@typescript-eslint/eslint-plugin": "^6.12.0",
-    "@typescript-eslint/parser": "^6.12.0",
-    "eslint": "^8.54.0",
+    "@types/jest": "^29.5.5",
+    "@types/node": "^20.6.3",
+    "@typescript-eslint/eslint-plugin": "^6.7.2",
+    "@typescript-eslint/parser": "^6.7.2",
+    "eslint": "^8.50.0",
     "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "husky": "^8.0.3",
     "jest": "^29.7.0",
-    "prettier": "^3.1.0",
-    "ts-jest": "^29.4.0",
+    "prettier": "^3.0.3",
+    "rimraf": "^5.0.5",
+    "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
   },
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=7.0.0"
+  "dependencies": {
+    "axios": "^1.5.0",
+    "commander": "^11.0.0",
+    "dotenv": "^16.3.1",
+    "winston": "^3.10.0",
+    "ws": "^8.14.2"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yourusername/ai-stock-trading-system.git"
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": ["<rootDir>/src"],
+    "testMatch": ["**/__tests__/**/*.test.ts"],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts",
+      "!src/__tests__/**/*"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "lcov", "html"],
+    "setupFilesAfterEnv": ["<rootDir>/src/__tests__/setup.ts"]
   },
-  "bugs": {
-    "url": "https://github.com/yourusername/ai-stock-trading-system/issues"
+  "eslintConfig": {
+    "extends": [
+      "@typescript-eslint/recommended",
+      "prettier"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint", "prettier"],
+    "rules": {
+      "prettier/prettier": "error",
+      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/no-explicit-any": "warn"
+    }
   },
-  "homepage": "https://github.com/yourusername/ai-stock-trading-system#readme"
+  "prettier": {
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 100,
+    "tabWidth": 2
+  }
 }

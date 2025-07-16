@@ -6,9 +6,6 @@
 
 import {
   BacktestConfig,
-  BacktestResult,
-  Trade,
-  EquityPoint,
   PerformanceMetrics,
   Signal,
   Order,
@@ -19,8 +16,9 @@ import {
   Kline,
   IStrategy,
   BacktestError
-} from '../../types';
-import { MathUtils, DateUtils, PerformanceUtils } from '../../utils';
+} from '../../../shared/types';
+import { MathUtils, DateUtils, PerformanceUtils } from '../../../shared/utils';
+import { BacktestResult, EquityPoint, Trade } from '../../../shared/types';
 
 /**
  * 回测引擎状态
@@ -114,9 +112,11 @@ export class BacktestEngine {
       console.log('回测完成');
 
       return result;
-    } catch (error) {
-      this.state = BacktestState.ERROR;
-      throw new BacktestError(`回测执行失败: ${error.message}`, error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.state = BacktestState.ERROR;
+        throw new BacktestError(`回测执行失败: ${error.message}`, error);
+      }
     }
   }
 
@@ -516,7 +516,8 @@ export class BacktestEngine {
         quantity: order.quantity,
         pnl: 0,
         pnlPercent: 0,
-        commission
+        commission,
+        volume: 0 // 新增 volume 字段
       };
 
       this.trades.push(trade);

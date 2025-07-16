@@ -1,5 +1,5 @@
 # 多阶段构建 - 构建阶段
-FROM node:20-alpine AS builder
+FROM node:20.12-alpine3.19 AS builder
 
 # 设置工作目录
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # 运行阶段
-FROM node:20-alpine AS runner
+FROM node:20.12-alpine3.19 AS runner
 
 # 安装必要的系统依赖
 RUN apk add --no-cache \

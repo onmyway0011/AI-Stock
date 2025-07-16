@@ -10,13 +10,10 @@ import {
   NotificationChannel,
   SignalConfig,
   SignalStatistics
-} from '../types/signal';
+} from '../../../shared/types';
 import { BaseNotificationChannel, ChannelStatus, SendResult } from './channels/BaseNotificationChannel';
 import { WeChatNotificationChannel, WeChatConfig } from './channels/WeChatNotificationChannel';
-import { createLogger } from '../utils/logger';
-import { DateUtils } from '../utils';
-
-const logger = createLogger('NOTIFICATION_MANAGER');
+import { DateUtils } from '../../../shared/utils';
 
 /**
  * 通知配置接口
@@ -118,7 +115,7 @@ export class NotificationManager {
   async sendSignalNotification(signal: TradingSignal): Promise<boolean> {
     try {
       if (!this.shouldSendNotification(signal)) {
-        logger.debug(`信号通知被过滤: ${signal.id}`);
+        console.debug(`信号通知被过滤: ${signal.id}`);
         return false;
       }
 
@@ -129,18 +126,18 @@ export class NotificationManager {
       const channels = this.determineChannels(signal);
       
       if (channels.length === 0) {
-        logger.warn('没有可用的通知通道');
+        console.warn('没有可用的通知通道');
         return false;
       }
 
       // 添加到队列
       this.addToQueue(message, signal, channels);
       
-      logger.info(`信号通知已加入队列: ${signal.symbol} ${signal.type}`);
+      console.info(`信号通知已加入队列: ${signal.symbol} ${signal.type}`);
       return true;
 
     } catch (error) {
-      logger.error('发送信号通知失败', error);
+      console.error('发送信号通知失败', error);
       return false;
     }
   }
@@ -161,7 +158,7 @@ export class NotificationManager {
   ): Promise<boolean> {
     try {
       if (!this.config.enabled) {
-        logger.debug('通知功能已禁用');
+        console.debug('通知功能已禁用');
         return false;
       }
 
@@ -182,11 +179,11 @@ export class NotificationManager {
 
       this.addToQueue(message, null, targetChannels, priorityValue);
       
-      logger.info(`自定义通知已加入队列: ${title}`);
+      console.info(`自定义通知已加入队列: ${title}`);
       return true;
 
     } catch (error) {
-      logger.error('发送自定义通知失败', error);
+      console.error('发送自定义通知失败', error);
       return false;
     }
   }
@@ -208,7 +205,7 @@ export class NotificationManager {
       };
     }
     
-    logger.info(`通知通道已添加: ${type}`);
+    console.info(`通知通道已添加: ${type}`);
   }
 
   /**
@@ -220,7 +217,7 @@ export class NotificationManager {
     if (channel) {
       channel.disable();
       this.channels.delete(channelType);
-      logger.info(`通知通道已移除: ${channelType}`);
+      console.info(`通知通道已移除: ${channelType}`);
     }
   }
 
@@ -230,7 +227,7 @@ export class NotificationManager {
    */
   setEnabled(enabled: boolean): void {
     this.config.enabled = enabled;
-    logger.info(`通知功能${enabled ? '已启用' : '已禁用'}`);
+    console.info(`通知功能${enabled ? '已启用' : '已禁用'}`);
   }
 
   /**
@@ -240,7 +237,7 @@ export class NotificationManager {
    */
   setQuietHours(start: string, end: string): void {
     this.config.quietHours = { start, end };
-    logger.info(`静默时间已设置: ${start} - ${end}`);
+    console.info(`静默时间已设置: ${start} - ${end}`);
   }
 
   /**
@@ -249,7 +246,7 @@ export class NotificationManager {
    */
   setMaxDailyNotifications(max: number): void {
     this.config.maxDailyNotifications = max;
-    logger.info(`每日最大通知数量已设置: ${max}`);
+    console.info(`每日最大通知数量已设置: ${max}`);
   }
 
   /**
@@ -296,7 +293,7 @@ export class NotificationManager {
       try {
         results[type] = await channel.performHealthCheck();
       } catch (error) {
-        logger.error(`通道 ${type} 健康检查失败`, error);
+        console.error(`通道 ${type} 健康检查失败`, error);
         results[type] = false;
       }
     }
@@ -310,7 +307,7 @@ export class NotificationManager {
   clearQueue(): void {
     this.messageQueue = [];
     this.processingQueue.clear();
-    logger.info('消息队列已清空');
+    console.info('消息队列已清空');
   }
 
   /**
@@ -318,7 +315,7 @@ export class NotificationManager {
    */
   resetStatistics(): void {
     this.statistics = this.initStatistics();
-    logger.info('通知统计已重置');
+    console.info('通知统计已重置');
   }
 
   /**
@@ -333,7 +330,7 @@ export class NotificationManager {
       this.initializeChannels();
     }
     
-    logger.info('通知配置已更新');
+    console.info('通知配置已更新');
   }
 
   /**
@@ -383,7 +380,7 @@ export class NotificationManager {
         const wechatChannel = new WeChatNotificationChannel(this.config.channels.wechat);
         this.addChannel(wechatChannel);
       } catch (error) {
-        logger.error('初始化微信通道失败', error);
+        console.error('初始化微信通道失败', error);
       }
     }
 
@@ -423,7 +420,7 @@ export class NotificationManager {
       }
       
     } catch (error) {
-      logger.error('处理消息队列失败', error);
+      console.error('处理消息队列失败', error);
     } finally {
       this.isProcessing = false;
     }
@@ -484,20 +481,20 @@ export class NotificationManager {
       if (hasSuccess) {
         this.lastNotificationTime = Date.now();
         this.updateDailyCount();
-        logger.info(`消息发送成功: ${message.title}`);
+        console.info(`消息发送成功: ${message.title}`);
       } else {
         // 重试逻辑
         item.attempts++;
         if (item.attempts < 3) {
           this.messageQueue.push(item);
-          logger.warn(`消息发送失败，将重试: ${message.title}`);
+          console.warn(`消息发送失败，将重试: ${message.title}`);
         } else {
-          logger.error(`消息发送最终失败: ${message.title}`);
+          console.error(`消息发送最终失败: ${message.title}`);
         }
       }
 
     } catch (error) {
-      logger.error(`处理消息失败: ${message.title}`, error);
+      console.error(`处理消息失败: ${message.title}`, error);
     } finally {
       this.processingQueue.delete(message.id);
     }
@@ -800,6 +797,6 @@ export class NotificationManager {
     // 清空队列
     this.clearQueue();
     
-    logger.info('通知管理器已销毁');
+    console.info('通知管理器已销毁');
   }
 }

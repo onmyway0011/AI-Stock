@@ -3,11 +3,11 @@
  * 使用机器学习算法优化交易策略的买卖点位和参数
  */
 
-import { MarketData, Kline } from '../../types';
-import { MathUtils, createLogger } from '../../utils';
+import { MarketData, Kline } from '../../../shared/types';
+import { MathUtils } from '../../../shared/utils';
 import { MLConfig } from '../base/AdvancedStrategyInterface';
 
-const logger = createLogger('ML_OPTIMIZER');
+// 移除 createLogger 相关引用和 logger 变量，直接用 console.log/info/warn/error 替代
 
 /**
  * 特征工程接口
@@ -104,7 +104,7 @@ class RandomForestModel implements MLModel {
   private trained = false;
 
   async train(data: TrainingDataPoint[]): Promise<void> {
-    logger.info(`开始训练随机森林模型，样本数: ${data.length}`);
+    console.info(`开始训练随机森林模型，样本数: ${data.length}`);
     // 模拟随机森林训练过程
     const numTrees = 100;
     const sampleRatio = 0.8;
@@ -123,7 +123,7 @@ class RandomForestModel implements MLModel {
     this.calculateFeatureImportance(data);
     this.trained = true;
     
-    logger.info('随机森林模型训练完成');
+    console.info('随机森林模型训练完成');
   }
 
   async predict(features: FeatureSet): Promise<MLPrediction> {
@@ -156,6 +156,11 @@ class RandomForestModel implements MLModel {
     };
   }
 
+  /**
+   * 评估模型性能
+   * @param testData 测试数据
+   * @returns 模型性能指标
+   */
   async evaluate(testData: TrainingDataPoint[]): Promise<ModelPerformance> {
     let correctPredictions = 0;
     let totalPredictions = testData.length;
@@ -195,12 +200,12 @@ class RandomForestModel implements MLModel {
 
   async save(path: string): Promise<void> {
     // 模拟保存模型
-    logger.info(`保存模型到: ${path}`);
+    console.info(`保存模型到: ${path}`);
   }
 
   async load(path: string): Promise<void> {
     // 模拟加载模型
-    logger.info(`从文件加载模型: ${path}`);
+    console.info(`从文件加载模型: ${path}`);
     this.trained = true;
   }
 
@@ -276,7 +281,7 @@ class LSTMModel implements MLModel {
   private sequenceLength = 60;
 
   async train(data: TrainingDataPoint[]): Promise<void> {
-    logger.info(`开始训练LSTM模型，样本数: ${data.length}`);
+    console.info(`开始训练LSTM模型，样本数: ${data.length}`);
     
     // 准备序列数据
     const sequences = this.prepareSequenceData(data);
@@ -289,7 +294,7 @@ class LSTMModel implements MLModel {
     };
     
     this.trained = true;
-    logger.info('LSTM模型训练完成');
+    console.info('LSTM模型训练完成');
   }
 
   async predict(features: FeatureSet): Promise<MLPrediction> {
@@ -322,56 +327,11 @@ class LSTMModel implements MLModel {
     };
   }
 
-  async evaluate(testData: TrainingDataPoint[]): Promise<ModelPerformance> {
-    // 简化的评估实现
-    return {
-      accuracy: 0.72,
-      precision: 0.70,
-      recall: 0.75,
-      f1Score: 0.72,
-      mse: 0.0025,
-      sharpeRatio: 1.5,
-      maxDrawdown: 0.12
-    };
-  }
-
-  getFeatureImportance(): Record<string, number> {
-    return {
-      'sequence_pattern': 0.4,
-      'trend_momentum': 0.3,
-      'volatility_regime': 0.2,
-      'volume_pattern': 0.1
-    };
-  }
-
-  async save(path: string): Promise<void> {
-    logger.info(`保存LSTM模型到: ${path}`);
-  }
-  async load(path: string): Promise<void> {
-    logger.info(`从文件加载LSTM模型: ${path}`);
-    this.trained = true;
-  }
-
-  private prepareSequenceData(data: TrainingDataPoint[]): number[][][] {
-    // 准备LSTM序列数据
-    const sequences: number[][][] = [];
-    
-    for (let i = this.sequenceLength; i < data.length; i++) {
-      const sequence: number[][] = [];
-      for (let j = i - this.sequenceLength; j < i; j++) {
-        const features = [
-          ...data[j].features.priceFeatures,
-          ...data[j].features.technicalFeatures,
-          ...data[j].features.volumeFeatures
-        ];
-        sequence.push(features);
-      }
-      sequences.push(sequence);
-    }
-    
-    return sequences;
-  }
-
+  /**
+   * 模拟LSTM预测
+   * @param features 特征集
+   * @returns 预测信号
+   */
   private simulateLSTMPrediction(features: FeatureSet): number {
     // 简化的LSTM预测逻辑
     const priceFeatures = features.priceFeatures;
@@ -395,10 +355,67 @@ class LSTMModel implements MLModel {
     }
     return signal + (Math.random() - 0.5) * 0.02; // 添加随机噪声
   }
+
+  /**
+   * 评估模型性能
+   * @param testData 测试数据
+   * @returns 模型性能指标
+   */
+  async evaluate(testData: TrainingDataPoint[]): Promise<ModelPerformance> {
+    // 简化的评估实现
+    return {
+      accuracy: 0.72,
+      precision: 0.70,
+      recall: 0.75,
+      f1Score: 0.72,
+      mse: 0.0025,
+      sharpeRatio: 1.5,
+      maxDrawdown: 0.12
+    };
+  }
+
+  getFeatureImportance(): Record<string, number> {
+    return {
+      'sequence_pattern': 0.4,
+      'trend_momentum': 0.3,
+      'volatility_regime': 0.2,
+      'volume_pattern': 0.1
+    };
+  }
+
+  async save(path: string): Promise<void> {
+    console.info(`保存LSTM模型到: ${path}`);
+  }
+  async load(path: string): Promise<void> {
+    console.info(`从文件加载LSTM模型: ${path}`);
+    this.trained = true;
+  }
+
+  private prepareSequenceData(data: TrainingDataPoint[]): number[][][] {
+    // 准备LSTM序列数据
+    const sequences: number[][][] = [];
+    
+    for (let i = this.sequenceLength; i < data.length; i++) {
+      const sequence: number[][] = [];
+      for (let j = i - this.sequenceLength; j < i; j++) {
+        const features = [
+          ...data[j].features.priceFeatures,
+          ...data[j].features.technicalFeatures,
+          ...data[j].features.volumeFeatures
+        ];
+        sequence.push(features);
+      }
+      sequences.push(sequence);
+    }
+    
+    return sequences;
+  }
 }
 
 /**
- * ML优化器主类
+ * 机器学习优化器
+ * 用于策略参数的机器学习优化
+ * @class MLOptimizer
  */
 export class MLOptimizer {
   private config: MLConfig;
@@ -430,7 +447,7 @@ export class MLOptimizer {
         this.models.set('primary', new RandomForestModel());
     }
     
-    logger.info(`初始化ML模型: ${this.config.modelType}`);
+    console.info(`初始化ML模型: ${this.config.modelType}`);
   }
 
   /**
@@ -464,7 +481,7 @@ export class MLOptimizer {
    */
   async trainModel(): Promise<void> {
     if (this.trainingData.length < this.config.minTrainSamples) {
-      logger.warn(`训练样本不足: ${this.trainingData.length} < ${this.config.minTrainSamples}`);
+      console.warn(`训练样本不足: ${this.trainingData.length} < ${this.config.minTrainSamples}`);
       return;
     }
 
@@ -487,7 +504,7 @@ export class MLOptimizer {
         
         // 评估模型性能
         const performance = await primaryModel.evaluate(testData);
-        logger.info('模型训练完成', {
+        console.info('模型训练完成', {
           modelType: this.config.modelType,
           trainSamples: trainData.length,
           testSamples: testData.length,
@@ -498,7 +515,7 @@ export class MLOptimizer {
 
       this.lastTrainingTime = now;
     } catch (error) {
-      logger.error('模型训练失败', error);
+      console.error('模型训练失败', error);
     }
   }
 
@@ -522,7 +539,7 @@ export class MLOptimizer {
 
       return prediction;
     } catch (error) {
-      logger.error('预测失败', error);
+      console.error('预测失败', error);
       return null;
     }
   }
@@ -532,10 +549,10 @@ export class MLOptimizer {
    */
   private extractFeatures(data: MarketData): FeatureSet {
     const klines = data.klines;
-    const prices = klines.map(k => k.close);
-    const volumes = klines.map(k => k.volume);
-    const highs = klines.map(k => k.high);
-    const lows = klines.map(k => k.low);
+    const prices = klines.map((k: Kline) => k.close);
+    const volumes = klines.map((k: Kline) => k.volume);
+    const highs = klines.map((k: Kline) => k.high);
+    const lows = klines.map((k: Kline) => k.low);
     // 价格特征
     const priceFeatures = [
       prices[prices.length - 1], // 当前价格
@@ -709,7 +726,7 @@ export class MLOptimizer {
     if (volumes.length < period) return volumes[volumes.length - 1] || 0;
     
     const recentVolumes = volumes.slice(-period);
-    return recentVolumes.reduce((sum, v) => sum + v, 0) / period;
+    return recentVolumes.reduce((sum: number, v: number) => sum + v, 0) / period;
   }
 
   private calculateVolumeRatio(volumes: number[]): number {
@@ -747,7 +764,7 @@ export class MLOptimizer {
   private calculateLiquidity(data: MarketData): number {
     // 简化的流动性计算
     const volumes = data.klines.map(k => k.volume);
-    const avgVolume = volumes.reduce((sum, v) => sum + v, 0) / volumes.length;
+    const avgVolume = volumes.reduce((sum: number, v: number) => sum + v, 0) / volumes.length;
     return Math.log(avgVolume + 1); // 对数变换
   }
 

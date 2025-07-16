@@ -4,16 +4,12 @@
  */
 
 import {
-  IStrategy,
   StrategyConfig,
-  StrategyStatus,
   MarketData,
   Signal,
   OrderSide,
   SignalStrength,
-  StrategyError,
-  RiskManagementConfig,
-  TradingConfig
+  Kline
 } from '../../../shared/types';
 import { MathUtils, DateUtils, ValidationUtils } from '../../../shared/utils';
 
@@ -69,7 +65,7 @@ export interface StrategyPerformance {
  * @class BaseStrategy
  * @implements IStrategy
  */
-export abstract class BaseStrategy implements IStrategy {
+export abstract class BaseStrategy {
   public readonly name: string;
   public config: StrategyConfig;
   
@@ -132,9 +128,11 @@ export abstract class BaseStrategy implements IStrategy {
       
       this.state = StrategyState.RUNNING;
       console.log(`策略 ${this.name} 初始化完成`);
-    } catch (error) {
-      this.state = StrategyState.ERROR;
-      throw new StrategyError(`策略初始化失败: ${error.message}`, error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.state = StrategyState.ERROR;
+        throw new Error(`策略初始化失败: ${error.message}`, error);
+      }
     }
   }
 
@@ -170,8 +168,10 @@ export abstract class BaseStrategy implements IStrategy {
       this.onParametersUpdated(parameters);
       
       console.log(`策略 ${this.name} 参数已更新`);
-    } catch (error) {
-      throw new StrategyError(`更新策略参数失败: ${error.message}`, error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        throw new Error(`更新策略参数失败: ${error.message}`, error);
+      }
     }
   }
 
@@ -186,7 +186,11 @@ export abstract class BaseStrategy implements IStrategy {
   /**
    * 获取策略状态
    */
-  getStatus(): StrategyStatus {
+  getStatus(): {
+    isRunning: boolean;
+    lastUpdate: number;
+    performance: StrategyPerformance;
+  } {
     return {
       isRunning: this.state === StrategyState.RUNNING,
       lastUpdate: this.context.lastUpdateTime,
@@ -263,8 +267,10 @@ export abstract class BaseStrategy implements IStrategy {
       }
 
       return null;
-    } catch (error) {
-      console.error(`策略 ${this.name} 处理市场数据失败:`, error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error(`策略 ${this.name} 处理市场数据失败:`, error);
+      }
       return null;
     }
   }
@@ -278,10 +284,8 @@ export abstract class BaseStrategy implements IStrategy {
     if (!data.klines || data.klines.length === 0) {
       return false;
     }
-
     // 验证K线数据
-    const validation = ValidationUtils.validateKlines(data.klines);
-    return validation.isValid;
+    return ValidationUtils.validateKlines(data.klines);
   }
 
   /**
@@ -293,7 +297,7 @@ export abstract class BaseStrategy implements IStrategy {
     
     // 更新市场状态（简单实现）
     if (data.klines.length >= 20) {
-      const recentPrices = data.klines.slice(-20).map(k => k.close);
+      const recentPrices = data.klines.slice(-20).map((k: Kline) => k.close);
       const ma5 = MathUtils.sma(recentPrices.slice(-5), 5)[0];
       const ma20 = MathUtils.sma(recentPrices, 20)[0];
       
@@ -412,8 +416,8 @@ export abstract class BaseStrategy implements IStrategy {
    * @param data 市场数据
    */
   protected calculateIndicators(data: MarketData): void {
-    const prices = data.klines.map(k => k.close);
-    const volumes = data.klines.map(k => k.volume);
+    const prices = data.klines.map((k: Kline) => k.close);
+    const volumes = data.klines.map((k: Kline) => k.volume);
 
     // 计算移动平均线
     if (prices.length >= 5) {
@@ -470,13 +474,11 @@ export abstract class BaseStrategy implements IStrategy {
     return {
       id: this.generateSignalId(),
       symbol,
-      timestamp: Date.now(),
       side,
       strength,
       confidence: Math.max(0, Math.min(1, confidence)),
       price,
       reason,
-      strategy: this.name,
       stopLoss: this.calculateStopLoss(side, price),
       takeProfit: this.calculateTakeProfit(side, price)
     };
@@ -531,31 +533,31 @@ export abstract class BaseStrategy implements IStrategy {
    */
   private validateConfig(): void {
     if (!this.config.name) {
-      throw new StrategyError('策略名称不能为空');
+      throw new Error('策略名称不能为空');
     }
 
     if (!this.config.riskManagement) {
-      throw new StrategyError('风险管理配置不能为空');
+      throw new Error('风险管理配置不能为空');
     }
 
     if (!this.config.tradingConfig) {
-      throw new StrategyError('交易配置不能为空');
+      throw new Error('交易配置不能为空');
     }
 
     // 验证风险管理参数
     const risk = this.config.riskManagement;
     if (risk.maxPositionSize <= 0 || risk.maxPositionSize > 1) {
-      throw new StrategyError('最大仓位比例必须在0-1之间');
+      throw new Error('最大仓位比例必须在0-1之间');
     }
 
     if (risk.stopLossPercent <= 0 || risk.stopLossPercent > 0.5) {
-      throw new StrategyError('止损比例必须在0-50%之间');
+      throw new Error('止损比例必须在0-50%之间');
     }
 
     // 验证交易配置
     const trading = this.config.tradingConfig;
     if (trading.minConfidence < 0 || trading.minConfidence > 1) {
-      throw new StrategyError('最小信号置信度必须在0-1之间');
+      throw new Error('最小信号置信度必须在0-1之间');
     }
   }
 

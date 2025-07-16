@@ -1,5 +1,345 @@
-  console.log(`   平均建仓价格: ${(positions.reduce((sum, p) => sum + p.price * p.quantity, 0) / positions.reduce((sum, p) => sum + p.quantity, 0)).toFixed(2)}`);
-  
+/**
+ * 高级策略演示程序
+ * 展示左侧建仓策略、机器学习优化和动态参数调整的完整使用流程
+ */
+
+import { LeftSideBuildingStrategy, LeftSideBuildingConfig } from '../src/strategies/advanced/LeftSideBuildingStrategy';
+import { MLOptimizer } from '../src/strategies/ml/MLOptimizer';
+import { DynamicParameterAdjuster } from '../src/strategies/optimization/DynamicParameterAdjuster';
+import { MarketData, KlineData, Signal, OrderSide, SignalStrength } from '../src/types';
+
+/**
+ * 市场数据模拟器
+ */
+class MarketDataSimulator {
+  /**
+   * 生成模拟K线数据
+   */
+  generateKlineData(symbol: string, count: number, startPrice: number = 100): MarketData {
+    const klines: KlineData[] = [];
+    let currentPrice = startPrice;
+    const baseTime = Date.now() - count * 3600000; // 往前推N小时
+
+    for (let i = 0; i < count; i++) {
+      const volatility = 0.02; // 2% 波动率
+      const change = (Math.random() - 0.5) * volatility;
+      const open = currentPrice;
+      const high = currentPrice * (1 + Math.abs(change) + Math.random() * 0.01);
+      const low = currentPrice * (1 - Math.abs(change) - Math.random() * 0.01);
+      const close = currentPrice * (1 + change);
+      const volume = Math.random() * 1000000 + 500000;
+
+      klines.push({
+        symbol,
+        openTime: baseTime + i * 3600000,
+        closeTime: baseTime + (i + 1) * 3600000,
+        open,
+        high,
+        low,
+        close,
+        volume,
+        quoteVolume: volume * currentPrice,
+        trades: Math.floor(Math.random() * 1000) + 100,
+        interval: '1h'
+      });
+
+      currentPrice = close;
+    }
+
+    return {
+      symbol,
+      klines,
+      timestamp: Date.now(),
+      source: 'simulator'
+    };
+  }
+
+  /**
+   * 模拟牛市行情
+   */
+  simulateBullMarket(symbol: string = 'BTCUSDT', days: number = 30): MarketData {
+    const klines: KlineData[] = [];
+    let currentPrice = 45000;
+    const baseTime = Date.now() - days * 24 * 3600000;
+    const trend = 0.003; // 每小时0.3%的上涨趋势
+
+    for (let i = 0; i < days * 24; i++) {
+      const volatility = 0.015;
+      const randomChange = (Math.random() - 0.5) * volatility;
+      const trendChange = trend + randomChange;
+      
+      const open = currentPrice;
+      const close = currentPrice * (1 + trendChange);
+      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
+      const volume = Math.random() * 2000000 + 1000000;
+
+      klines.push({
+        symbol,
+        openTime: baseTime + i * 3600000,
+        closeTime: baseTime + (i + 1) * 3600000,
+        open,
+        high,
+        low,
+        close,
+        volume,
+        quoteVolume: volume * currentPrice,
+        trades: Math.floor(Math.random() * 2000) + 500,
+        interval: '1h'
+      });
+
+      currentPrice = close;
+    }
+
+    return {
+      symbol,
+      klines,
+      timestamp: Date.now(),
+      source: 'simulator'
+    };
+  }
+
+  /**
+   * 模拟熊市行情
+   */
+  simulateMarketCrash(symbol: string = 'BTCUSDT', days: number = 15): MarketData {
+    const klines: KlineData[] = [];
+    let currentPrice = 50000;
+    const baseTime = Date.now() - days * 24 * 3600000;
+
+    for (let i = 0; i < days * 24; i++) {
+      const volatility = 0.025; // 更高的波动率
+      const trend = -0.005; // 每小时-0.5%的下跌趋势
+      const randomChange = (Math.random() - 0.5) * volatility;
+      const trendChange = trend + randomChange;
+      
+      const open = currentPrice;
+      const close = currentPrice * (1 + trendChange);
+      const high = Math.max(open, close) * (1 + Math.random() * 0.015);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.02);
+      const volume = Math.random() * 3000000 + 2000000; // 更高的成交量
+
+      klines.push({
+        symbol,
+        openTime: baseTime + i * 3600000,
+        closeTime: baseTime + (i + 1) * 3600000,
+        open,
+        high,
+        low,
+        close,
+        volume,
+        quoteVolume: volume * currentPrice,
+        trades: Math.floor(Math.random() * 3000) + 1000,
+        interval: '1h'
+      });
+
+      currentPrice = close;
+    }
+
+    return {
+      symbol,
+      klines,
+      timestamp: Date.now(),
+      source: 'simulator'
+    };
+  }
+
+  /**
+   * 模拟震荡行情
+   */
+  simulateSidewaysMarket(symbol: string = 'BTCUSDT', days: number = 45): MarketData {
+    const klines: KlineData[] = [];
+    let currentPrice = 47000;
+    const basePrice = currentPrice;
+    const baseTime = Date.now() - days * 24 * 3600000;
+
+    for (let i = 0; i < days * 24; i++) {
+      const volatility = 0.02;
+      const meanReversion = (basePrice - currentPrice) / basePrice * 0.01; // 回归均值的力量
+      const randomChange = (Math.random() - 0.5) * volatility;
+      const trendChange = meanReversion + randomChange;
+      
+      const open = currentPrice;
+      const close = currentPrice * (1 + trendChange);
+      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
+      const volume = Math.random() * 1500000 + 800000;
+
+      klines.push({
+        symbol,
+        openTime: baseTime + i * 3600000,
+        closeTime: baseTime + (i + 1) * 3600000,
+        open,
+        high,
+        low,
+        close,
+        volume,
+        quoteVolume: volume * currentPrice,
+        trades: Math.floor(Math.random() * 1500) + 300,
+        interval: '1h'
+      });
+
+      currentPrice = close;
+    }
+
+    return {
+      symbol,
+      klines,
+      timestamp: Date.now(),
+      source: 'simulator'
+    };
+  }
+}
+
+/**
+ * 简化的持仓信息接口
+ */
+interface PositionInfo {
+  symbol: string;
+  price: number;
+  quantity: number;
+  timestamp: number;
+  level: number;
+}
+
+/**
+ * 主演示函数
+ */
+async function runAdvancedStrategyDemo(): Promise<void> {
+  console.log('🚀 AI股票交易系统 - 高级策略演示');
+  console.log('='.repeat(60));
+  console.log('本演示将展示左侧建仓策略的完整功能：');
+  console.log('• 智能建仓逻辑');
+  console.log('• 机器学习优化');
+  console.log('• 动态参数调整');
+  console.log('• 综合策略应用');
+  console.log('='.repeat(60));
+  console.log('');
+
+  try {
+    // 初始化组件
+    const marketSimulator = new MarketDataSimulator();
+    const strategyConfig: LeftSideBuildingConfig = {
+      minDropPercent: 0.05,           // 5%跌幅触发建仓
+      addPositionDropInterval: 0.03,  // 3%间隔加仓
+      maxBuildingTimes: 5,            // 最多5次建仓
+      basePositionSize: 1000,         // 基础仓位1000
+      positionMultiplier: 1.5,        // 加仓倍数1.5
+      priceConfirmationPeriods: 3,    // 3个周期确认
+      stopLossFromHigh: 0.25,         // 25%止损
+      profitTakingThresholds: [0.10, 0.20, 0.35], // 分批减仓阈值
+      reductionRatios: [0.3, 0.5, 1.0],           // 减仓比例
+      buildPositionInterval: 3600000, // 1小时建仓间隔
+      confidenceThreshold: 0.8        // 80%置信度阈值
+    };
+
+    const strategy = new LeftSideBuildingStrategy(strategyConfig);
+    const mlOptimizer = new MLOptimizer({
+      modelType: 'randomForest',
+      trainingSamples: 100,
+      validationRatio: 0.2,
+      confidenceThreshold: 0.7
+    });
+    const parameterAdjuster = new DynamicParameterAdjuster({
+      optimizationMethod: 'bayesian',
+      maxIterations: 50,
+      targetMetric: 'sharpeRatio',
+      minImprovement: 0.05
+    });
+
+    // 运行各个演示
+    await demoBasicStrategy(strategy, marketSimulator);
+    await demoMLOptimization(strategy, mlOptimizer, marketSimulator);
+    await demoDynamicParameterAdjustment(strategy, parameterAdjuster, marketSimulator);
+    await demoIntegratedStrategy(strategy, mlOptimizer, parameterAdjuster, marketSimulator);
+
+    console.log('🎉 演示完成！');
+    console.log('\n💡 总结：');
+    console.log('• 左侧建仓策略在下跌市场中能够有效分批建仓');
+    console.log('• 机器学习优化可以提高策略的预测准确性');
+    console.log('• 动态参数调整能够适应不同的市场环境');
+    console.log('• 综合使用多种技术可以显著提升交易表现');
+
+  } catch (error) {
+    console.error('❌ 演示过程中发生错误:', error);
+  }
+}
+
+/**
+ * 演示基础策略功能
+ */
+async function demoBasicStrategy(
+  strategy: LeftSideBuildingStrategy,
+  marketSimulator: MarketDataSimulator
+): Promise<void> {
+  console.log('📊 演示基础左侧建仓策略');
+  console.log('='.repeat(50));
+
+  // 模拟市场下跌场景
+  console.log('\n🔻 模拟市场下跌场景...');
+  const crashData = marketSimulator.simulateMarketCrash('BTCUSDT', 10);
+  const startPrice = crashData.klines[0].close;
+  const endPrice = crashData.klines[crashData.klines.length - 1].close;
+  const totalDrop = (startPrice - endPrice) / startPrice;
+
+  console.log(`市场表现: ${startPrice.toFixed(2)} -> ${endPrice.toFixed(2)}`);
+  console.log(`总跌幅: ${(totalDrop * 100).toFixed(2)}%\n`);
+
+  // 分段处理数据，模拟实时信号生成
+  const segmentSize = 24; // 每24小时处理一次
+  let totalSignals = 0;
+  const positions: PositionInfo[] = [];
+
+  for (let i = segmentSize; i <= crashData.klines.length; i += segmentSize) {
+    const segmentData: MarketData = {
+      symbol: crashData.symbol,
+      klines: crashData.klines.slice(0, i),
+      timestamp: crashData.klines[i - 1].closeTime,
+      source: 'simulator'
+    };
+
+    const signal = await strategy.generateSignal(segmentData);
+    if (signal) {
+      totalSignals++;
+      const currentPrice = segmentData.klines[segmentData.klines.length - 1].close;
+      
+      console.log(`📈 生成信号 #${totalSignals}:`);
+      console.log(`   时间: ${new Date(segmentData.timestamp).toLocaleString()}`);
+      console.log(`   操作: ${signal.side} ${signal.symbol}`);
+      console.log(`   价格: ${currentPrice.toFixed(2)}`);
+      console.log(`   数量: ${signal.quantity}`);
+      console.log(`   置信度: ${(signal.confidence * 100).toFixed(1)}%`);
+      console.log(`   策略: ${signal.strategy}`);
+      console.log(`   原因: ${signal.reason}`);
+
+      if (signal.side === OrderSide.BUY) {
+        positions.push({
+          symbol: signal.symbol,
+          price: currentPrice,
+          quantity: signal.quantity,
+          timestamp: segmentData.timestamp,
+          level: positions.length + 1
+        });
+      }
+      console.log('');
+    }
+  }
+
+  // 显示建仓统计
+  console.log('📊 建仓统计:');
+  console.log(`   总信号数: ${totalSignals}`);
+  console.log(`   建仓次数: ${positions.length}`);
+  if (positions.length > 0) {
+    const totalQuantity = positions.reduce((sum, p) => sum + p.quantity, 0);
+    const totalCost = positions.reduce((sum, p) => sum + p.price * p.quantity, 0);
+    const avgPrice = totalCost / totalQuantity;
+    console.log(`   总持仓量: ${totalQuantity.toFixed(2)}`);
+    console.log(`   平均建仓价格: ${avgPrice.toFixed(2)}`);
+    console.log(`   当前价格: ${endPrice.toFixed(2)}`);
+    console.log(`   浮动盈亏: ${((endPrice - avgPrice) / avgPrice * 100).toFixed(2)}%`);
+  }
+  console.log('');
+
   // 获取策略当前状态
   const currentState = await strategy.getCurrentState();
   console.log(`   当前活跃仓位: ${currentState.positions.length}`);
@@ -20,7 +360,7 @@ async function demoMLOptimization(
   // 生成训练数据
   console.log('\n📚 生成训练数据...');
   for (let i = 0; i < 50; i++) {
-    const data = marketSimulator.generateKlineData('TSLA', 100);
+    const data = marketSimulator.generateKlineData('BTCUSDT', 100);
     const futureReturn = (Math.random() - 0.5) * 0.2; // 模拟未来收益
     mlOptimizer.addTrainingData(data, futureReturn);
   }
@@ -38,7 +378,7 @@ async function demoMLOptimization(
 
     // 进行预测
     console.log('🔮 进行ML预测...');
-    const testData = marketSimulator.generateKlineData('TSLA', 60);
+    const testData = marketSimulator.generateKlineData('BTCUSDT', 60);
     const prediction = await mlOptimizer.predict(testData);
 
     if (prediction) {
@@ -53,10 +393,10 @@ async function demoMLOptimization(
       console.log(`\n📈 特征重要性:`);
       const featureImportance = mlOptimizer.getFeatureImportance();
       Object.entries(featureImportance)
-        .sort(([,a], [,b]) => b - a)
+        .sort(([,a], [,b]) => Number(b) - Number(a))
         .slice(0, 5)
         .forEach(([feature, importance]) => {
-          console.log(`   ${feature}: ${(importance * 100).toFixed(1)}%`);
+          console.log(`   ${feature}: ${(Number(importance) * 100).toFixed(1)}%`);
         });
     } else {
       console.log('❌ 预测置信度不足，未生成预测结果');
@@ -132,14 +472,13 @@ async function demoDynamicParameterAdjustment(
     console.log(`     收益率: ${(optimizationResult.afterPerformance.returns * 100).toFixed(2)}%`);
     console.log(`     夏普比率: ${optimizationResult.afterPerformance.sharpeRatio.toFixed(2)}`);
     console.log(`     最大回撤: ${(optimizationResult.afterPerformance.maxDrawdown * 100).toFixed(2)}%`);
-
     if (Object.keys(optimizationResult.adjustedParameters).length > 0) {
       console.log('\n🔧 调整的参数:');
       Object.entries(optimizationResult.adjustedParameters).forEach(([key, value]) => {
-        const oldValue = currentParams[key];
+        const oldValue = (currentParams as any)[key];
         if (oldValue !== undefined) {
-          const change = ((value - oldValue) / oldValue * 100).toFixed(1);
-          console.log(`   ${key}: ${oldValue} -> ${value} (${change > 0 ? '+' : ''}${change}%)`);
+          const change = ((Number(value) - Number(oldValue)) / Number(oldValue) * 100).toFixed(1);
+          console.log(`   ${key}: ${oldValue} -> ${value} (${Number(change) > 0 ? '+' : ''}${change}%)`);
         }
       });
     }
@@ -157,7 +496,7 @@ async function demoDynamicParameterAdjustment(
     }
 
   } catch (error) {
-    console.log('❌ 参数优化失败:', error.message);
+    console.log('❌ 参数优化失败:', (error as Error).message);
   }
   
   console.log('');
@@ -179,7 +518,14 @@ async function demoIntegratedStrategy(
 
   let totalSignals = 0;
   let totalProfits = 0;
-  const tradeHistory = [];
+  const tradeHistory: Array<{
+    cycle: string;
+    signal: string;
+    price: number;
+    quantity: number;
+    return: number;
+    profit: number;
+  }> = [];
 
   // 模拟多个市场周期
   const marketCycles = [
@@ -204,12 +550,12 @@ async function demoIntegratedStrategy(
     }
 
     // 2. 生成策略信号
-    const signal = await strategy.generateAdvancedSignal(marketData);
+    const signal = await strategy.generateSignal(marketData);
     if (signal) {
       totalSignals++;
       const currentPrice = marketData.klines[marketData.klines.length - 1].close;
       
-      console.log(`   策略信号: ${signal.signalType} ${signal.side}`);
+      console.log(`   策略信号: ${signal.side}`);
       console.log(`   价格: ${currentPrice.toFixed(2)}, 数量: ${signal.quantity}`);
       console.log(`   置信度: ${(signal.confidence * 100).toFixed(1)}%`);
 
@@ -220,7 +566,7 @@ async function demoIntegratedStrategy(
 
       tradeHistory.push({
         cycle: cycle.name,
-        signal: signal.signalType,
+        signal: signal.side,
         price: currentPrice,
         quantity: signal.quantity,
         return: simulatedReturn,

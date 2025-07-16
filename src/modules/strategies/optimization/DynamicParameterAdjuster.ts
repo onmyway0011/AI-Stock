@@ -3,10 +3,7 @@
  * 根据策略性能自动调整参数，实现策略的自适应优化
  */
 
-import { createLogger } from '../../utils';
 import { DynamicParameterConfig, StrategyOptimizationResult } from '../base/AdvancedStrategyInterface';
-
-const logger = createLogger('DYNAMIC_PARAMETER');
 
 /**
  * 参数范围定义
@@ -85,8 +82,6 @@ class GridSearchOptimizer implements OptimizationAlgorithm {
     expectedImprovement: number;
     confidence: number;
   }> {
-    logger.info('开始网格搜索优化');
-
     const paramNames = Object.keys(paramRanges);
     const bestParams = { ...currentParams };
     let bestScore = this.calculateOverallScore(performanceHistory[performanceHistory.length - 1]?.performance);
@@ -245,145 +240,6 @@ class GridSearchOptimizer implements OptimizationAlgorithm {
 }
 
 /**
- * 贝叶斯优化算法
- */
-class BayesianOptimizer implements OptimizationAlgorithm {
-  name = 'Bayesian';
-
-  async optimize(
-    currentParams: Record<string, any>,
-    paramRanges: ParameterDefinition,
-    performanceHistory: OptimizationRecord[]
-  ): Promise<{
-    newParams: Record<string, any>;
-    expectedImprovement: number;
-    confidence: number;
-  }> {
-    logger.info('开始贝叶斯优化');
-
-    // 简化的贝叶斯优化实现
-    const paramNames = Object.keys(paramRanges);
-    const bestParams = { ...currentParams };
-    // 基于历史数据建立代理模型
-    const surrogateModel = this.buildSurrogateModel(performanceHistory);
-    
-    // 使用采集函数寻找最优参数
-    for (const paramName of paramNames) {
-      const range = paramRanges[paramName];
-      const candidates = this.generateBayesianCandidates(currentParams[paramName], range);
-      
-      let bestCandidate = currentParams[paramName];
-      let bestAcquisition = -Infinity;
-      
-      for (const candidate of candidates) {
-        const testParams = { ...currentParams, [paramName]: candidate };
-        const acquisition = this.calculateAcquisitionFunction(testParams, surrogateModel, performanceHistory);
-        
-        if (acquisition > bestAcquisition) {
-          bestAcquisition = acquisition;
-          bestCandidate = candidate;
-        }
-      }
-      
-      bestParams[paramName] = bestCandidate;
-    }
-
-    return {
-      newParams: bestParams,
-      expectedImprovement: 0.15,
-      confidence: 0.8
-    };
-  }
-  private buildSurrogateModel(history: OptimizationRecord[]): any {
-    // 简化的高斯过程代理模型
-    return {
-      mean: history.length > 0 ? history.reduce((sum, r) => sum + this.calculateScore(r.performance), 0) / history.length : 50,
-      variance: 10,
-      history
-    };
-  }
-
-  private generateBayesianCandidates(current: number, range: ParameterRange): number[] {
-    const candidates: number[] = [];
-    const numCandidates = 10;
-    
-    for (let i = 0; i < numCandidates; i++) {
-      const ratio = i / (numCandidates - 1);
-      const candidate = range.min + (range.max - range.min) * ratio;
-      
-      if (range.type === 'integer') {
-        candidates.push(Math.round(candidate));
-      } else {
-        candidates.push(Number(candidate.toFixed(4)));
-      }
-    }
-    
-    return candidates;
-  }
-  private calculateAcquisitionFunction(params: Record<string, any>, model: any, history: OptimizationRecord[]): number {
-    // 期望改进采集函数
-    const predictedMean = this.predictPerformance(params, model);
-    const predictedVariance = this.predictVariance(params, model);
-    const currentBest = Math.max(...history.map(r => this.calculateScore(r.performance)));
-    
-    const improvement = Math.max(0, predictedMean - currentBest);
-    const exploration = Math.sqrt(predictedVariance);
-    
-    return improvement + 0.1 * exploration; // 平衡探索和利用
-  }
-
-  private predictPerformance(params: Record<string, any>, model: any): number {
-    // 简化的性能预测
-    let prediction = model.mean;
-    
-    // 基于参数与历史记录的相似性调整预测
-    for (const record of model.history.slice(-5)) {
-      const similarity = this.calculateSimilarity(params, record.parameters);
-      const score = this.calculateScore(record.performance);
-      prediction += similarity * (score - model.mean) * 0.2;
-    }
-    
-    return prediction;
-  }
-
-  private predictVariance(params: Record<string, any>, model: any): number {
-    // 简化的方差预测
-    let variance = model.variance;
-    
-    // 基于数据密度调整不确定性
-    const minDistance = Math.min(...model.history.map(r => 
-      this.calculateParameterDistance(params, r.parameters)
-    ));
-    
-    variance *= (1 + minDistance); // 距离已知数据点越远，不确定性越大
-    
-    return variance;
-  }
-
-  private calculateScore(performance: PerformanceMetrics): number {
-    return performance.sharpeRatio * 20 + performance.totalReturn * 100 - performance.maxDrawdown * 50;
-  }
-
-  private calculateSimilarity(params1: Record<string, any>, params2: Record<string, any>): number {
-    const distance = this.calculateParameterDistance(params1, params2);
-    return Math.exp(-distance);
-  }
-
-  private calculateParameterDistance(params1: Record<string, any>, params2: Record<string, any>): number {
-    const keys = new Set([...Object.keys(params1), ...Object.keys(params2)]);
-    let distance = 0;
-    
-    for (const key of keys) {
-      const val1 = params1[key] || 0;
-      const val2 = params2[key] || 0;
-      distance += Math.pow(val1 - val2, 2);
-    }
-    
-    return Math.sqrt(distance);
-  }
-}
-
-/**
  * 遗传算法优化器
  */
 class GeneticOptimizer implements OptimizationAlgorithm {
@@ -402,8 +258,6 @@ class GeneticOptimizer implements OptimizationAlgorithm {
     expectedImprovement: number;
     confidence: number;
   }> {
-    logger.info('开始遗传算法优化');
-
     const paramNames = Object.keys(paramRanges);
     
     // 初始化种群
@@ -624,7 +478,9 @@ class GeneticOptimizer implements OptimizationAlgorithm {
 }
 
 /**
- * 动态参数调整器主类
+ * 动态参数调整器
+ * 实现策略参数的自动优化与调整
+ * @class DynamicParameterAdjuster
  */
 export class DynamicParameterAdjuster {
   private config: DynamicParameterConfig;
@@ -644,7 +500,6 @@ export class DynamicParameterAdjuster {
    */
   private initializeOptimizers(): void {
     this.optimizers.set('grid', new GridSearchOptimizer());
-    this.optimizers.set('bayesian', new BayesianOptimizer());
     this.optimizers.set('genetic', new GeneticOptimizer());
   }
 
@@ -714,11 +569,15 @@ export class DynamicParameterAdjuster {
 
   /**
    * 执行参数优化
+   * @param currentParams 当前参数
+   * @param recentPerformance 近期性能指标
+   * @param optimizationType 优化算法类型
+   * @returns 优化结果
    */
   async optimizeParameters(
     currentParams: Record<string, any>,
     recentPerformance: PerformanceMetrics,
-    optimizationType: 'grid' | 'bayesian' | 'genetic' = 'bayesian'
+    optimizationType: 'grid' | 'genetic' = 'genetic'
   ): Promise<StrategyOptimizationResult> {
     if (!this.config.enabled) {
       throw new Error('动态参数调整已禁用');
@@ -728,16 +587,12 @@ export class DynamicParameterAdjuster {
     const optimizationInterval = this.config.adjustmentFrequency * 60 * 60 * 1000;
     
     if (now - this.lastOptimizationTime < optimizationInterval) {
-      logger.info('优化间隔未到，跳过本次优化');
       return this.createNoChangeResult(currentParams, recentPerformance);
     }
 
     try {
-      logger.info(`开始参数优化: ${optimizationType}`);
-
       // 检查性能是否需要优化
       if (recentPerformance.sharpeRatio >= this.config.minPerformanceThreshold) {
-        logger.info('当前性能良好，无需优化');
         return this.createNoChangeResult(currentParams, recentPerformance);
       }
 
@@ -781,12 +636,6 @@ export class DynamicParameterAdjuster {
         this.optimizationHistory = this.optimizationHistory.slice(-80);
       }
 
-      logger.info('参数优化完成', {
-        expectedImprovement: optimizationResult.expectedImprovement,
-        confidence: optimizationResult.confidence,
-        shouldApply
-      });
-
       return {
         optimizationType: 'PARAMETER_TUNING',
         beforePerformance: {
@@ -806,7 +655,6 @@ export class DynamicParameterAdjuster {
       };
 
     } catch (error) {
-      logger.error('参数优化失败', error);
       throw error;
     }
   }
@@ -817,7 +665,7 @@ export class DynamicParameterAdjuster {
   private filterAdjustableParameters(params: Record<string, any>): Record<string, any> {
     const adjustable: Record<string, any> = {};
     for (const paramName of this.config.adjustableParameters) {
-      if (params.hasOwnProperty(paramName)) {
+      if (Object.prototype.hasOwnProperty.call(params, paramName)) {
         adjustable[paramName] = params[paramName];
       }
     }
@@ -832,7 +680,7 @@ export class DynamicParameterAdjuster {
     const adjustable: ParameterDefinition = {};
     
     for (const paramName of this.config.adjustableParameters) {
-      if (this.parameterDefinitions[paramName]) {
+      if (Object.prototype.hasOwnProperty.call(this.parameterDefinitions, paramName)) {
         adjustable[paramName] = this.parameterDefinitions[paramName];
       }
     }
@@ -890,6 +738,9 @@ export class DynamicParameterAdjuster {
 
   /**
    * 生成优化建议
+   * @param result 优化结果
+   * @param performance 当前性能
+   * @returns 建议数组
    */
   private generateRecommendations(
     result: { newParams: Record<string, any>; expectedImprovement: number; confidence: number },

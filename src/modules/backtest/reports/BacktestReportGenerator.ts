@@ -4,11 +4,8 @@
  * @class BacktestReportGenerator
  */
 
-import { BacktestResult, EquityPoint, Trade } from '../engine/BacktestEngine';
-import { createLogger } from '../../utils/logger';
-import { DateUtils, FormatUtils, MathUtils } from '../../utils';
-
-const logger = createLogger('BACKTEST_REPORT');
+import { BacktestResult, EquityPoint, Trade } from '../../../shared/types';
+import { DateUtils, FormatUtils } from '../../../shared/utils';
 
 /**
  * 报告配置
@@ -84,8 +81,6 @@ export class BacktestReportGenerator {
    * @returns 报告字符串
    */
   async generateReport(result: BacktestResult): Promise<string> {
-    logger.info(`开始生成回测报告: ${this.config.format}`);
-
     try {
       const reportData = this.analyzeResults(result);
       const chartData = this.generateChartData(result);
@@ -106,11 +101,9 @@ export class BacktestReportGenerator {
           throw new Error(`不支持的报告格式: ${this.config.format}`);
       }
 
-      logger.info('回测报告生成完成');
       return report;
 
     } catch (error) {
-      logger.error('生成回测报告失败', error);
       throw error;
     }
   }
@@ -502,16 +495,16 @@ export class BacktestReportGenerator {
                     <div>
                         <h3>风险调整收益</h3>
                         <div class="list-item">夏普比率: ${result.riskAdjusted.sharpeRatio.toFixed(2)}</div>
-                        <div class="list-item">索提诺比率: ${result.riskAdjusted.sortinoRatio.toFixed(2)}</div>
-                        <div class="list-item">卡玛比率: ${result.riskAdjusted.calmarRatio.toFixed(2)}</div>
-                        <div class="list-item">信息比率: ${result.riskAdjusted.informationRatio.toFixed(2)}</div>
-                        <div class="list-item">特雷诺比率: ${result.riskAdjusted.treynorRatio.toFixed(2)}</div>
+                        <div class="list-item">索提诺比率: ${result.riskAdjusted.sortinoRatio?.toFixed(2) || '0.00'}</div>
+                        <div class="list-item">卡玛比率: ${result.riskAdjusted.calmarRatio?.toFixed(2) || '0.00'}</div>
+                        <div class="list-item">信息比率: ${result.riskAdjusted.informationRatio?.toFixed(2) || '0.00'}</div>
+                        <div class="list-item">特雷诺比率: ${result.riskAdjusted.treynorRatio?.toFixed(2) || '0.00'}</div>
                         
                         <h3>交易统计</h3>
                         <div class="list-item">总交易次数: ${result.trading.totalTrades}</div>
                         <div class="list-item">盈利交易: ${result.trading.winningTrades}</div>
                         <div class="list-item">亏损交易: ${result.trading.losingTrades}</div>
-                        <div class="list-item">盈亏比: ${result.trading.profitFactor.toFixed(2)}</div>
+                        <div class="list-item">盈亏比: ${result.trading.profitFactor?.toFixed(2) || '0.00'}</div>
                         <div class="list-item">平均交易: ${FormatUtils.formatCurrency(result.trading.averageTrade)}</div>
                     </div>
                 </div>
@@ -587,7 +580,7 @@ export class BacktestReportGenerator {
                         <td>${DateUtils.formatTimestamp(trade.timestamp, 'MM-DD HH:mm')}</td>
                         <td class="trade-${trade.side.toLowerCase()}">${trade.side}</td>
                         <td>${trade.quantity}</td>
-                        <td>${trade.price.toFixed(4)}</td>
+                        <td>${trade.price?.toFixed(4) || 'N/A'}</td>
                         <td>${FormatUtils.formatCurrency(trade.commission)}</td>
                         <td>${trade.reason}</td>
                     </tr>
@@ -688,14 +681,14 @@ ${analysis.recommendations.map(r => `- ${r}`).join('\n')}
 
 ### 风险调整收益
 - 夏普比率: ${result.riskAdjusted.sharpeRatio.toFixed(2)}
-- 索提诺比率: ${result.riskAdjusted.sortinoRatio.toFixed(2)}
-- 卡玛比率: ${result.riskAdjusted.calmarRatio.toFixed(2)}
+- 索提诺比率: ${result.riskAdjusted.sortinoRatio?.toFixed(2) || '0.00'}
+- 卡玛比率: ${result.riskAdjusted.calmarRatio?.toFixed(2) || '0.00'}
 
 ### 交易统计
 - 总交易次数: ${result.trading.totalTrades}
 - 盈利交易: ${result.trading.winningTrades}
 - 亏损交易: ${result.trading.losingTrades}
-- 盈亏比: ${result.trading.profitFactor.toFixed(2)}
+- 盈亏比: ${result.trading.profitFactor?.toFixed(2) || '0.00'}
 - 平均交易: ${FormatUtils.formatCurrency(result.trading.averageTrade)}
 
 ---
@@ -874,7 +867,7 @@ ${analysis.recommendations.map(r => `- ${r}`).join('\n')}
     for (let i = window; i <= dailyReturns.length; i++) {
       const windowReturns = dailyReturns.slice(i - window, i);
       const meanReturn = windowReturns.reduce((sum, r) => sum + r, 0) / window;
-      const stdReturn = MathUtils.standardDeviation(windowReturns);
+      const stdReturn = Math.sqrt(windowReturns.reduce((sum, r) => sum + r * r, 0) / window - meanReturn * meanReturn); // 使用标准差公式
       
       const annualizedReturn = meanReturn * 252;
       const annualizedVolatility = stdReturn * Math.sqrt(252);
