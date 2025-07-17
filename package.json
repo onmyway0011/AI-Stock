@@ -1,22 +1,32 @@
 {
   "name": "ai-stock-trading-system",
-  "version": "1.2.0",
-  "description": "AI-powered stock trading system with intelligent signal generation and automated trading strategies",
-  "main": "dist/index.js",
+  "version": "2.0.0",
+  "description": "AI-powered desktop stock trading system with intelligent signal generation and automated monitoring",
+  "main": "dist/electron/main.js",
   "types": "dist/index.d.ts",
+  "homepage": "https://github.com/onmyway0011/AI-Stock#readme",
+  "author": "AI Stock Trading Team",
+  "license": "MIT",
+  "private": false,
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run build:web",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:web": "cd frontend && npm run build",
     "start": "node dist/index.js",
+    "start:electron": "npm run build:electron && electron .",
+    "start:dev": "concurrently \"npm run dev:web\" \"wait-on http://localhost:3000 && npm run electron:dev\"",
     "dev": "ts-node src/index.ts",
+    "dev:web": "cd frontend && npm start",
+    "electron:dev": "npm run build:electron && electron . --dev",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:sina": "jest --testPathPattern=sina-finance",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
-    "format": "prettier --write src/**/*.ts",
+    "lint": "eslint src/**/*.ts frontend/src/**/*.{ts,tsx}",
+    "lint:fix": "eslint src/**/*.ts frontend/src/**/*.{ts,tsx} --fix",
+    "format": "prettier --write src/**/*.ts frontend/src/**/*.{ts,tsx}",
     "type-check": "tsc --noEmit",
-    "clean": "rimraf dist",
+    "clean": "rimraf dist build frontend/build",
     "prebuild": "npm run clean",
     "demo": "npm run demo:all",
     "demo:all": "npm run build && npm run demo:data && npm run demo:signal && npm run demo:strategy && npm run demo:backtest && npm run demo:sina",
@@ -47,10 +57,14 @@
     "sina:market": "npm run sina:cli market",
     "stock:search": "ts-node -e \"import('./src/data/collectors/SinaFinanceCollector').then(m => { const c = new m.SinaFinanceCollector(); c.start().then(() => c.searchStocks(process.argv[2] || '银行')).then(console.log).finally(() => c.stop()); })\"",
     "stock:price": "ts-node -e \"import('./src/data/collectors/SinaFinanceCollector').then(m => { const c = new m.SinaFinanceCollector(); c.start().then(() => c.getRealTimeData([process.argv[2] || '600036'])).then(console.log).finally(() => c.stop()); })\"",
-    "prepare": "husky install || true"
-  },
-  "bin": {
-    "sina-cli": "./dist/src/apps/cli/sina-cli.js"
+    "prepare": "husky install || true",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:win": "npm run build && electron-builder --win",
+    "package:linux": "npm run build && electron-builder --linux",
+    "package:all": "npm run build && electron-builder --mac --win --linux",
+    "dist": "npm run package:all",
+    "install:frontend": "cd frontend && npm install",
+    "postinstall": "npm run install:frontend"
   },
   "keywords": [
     "ai",
@@ -73,10 +87,11 @@
     "notifications",
     "wechat",
     "typescript",
-    "nodejs"
+    "nodejs",
+    "electron",
+    "desktop-app",
+    "cross-platform"
   ],
-  "author": "AI Stock Trading Team",
-  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/onmyway0011/AI-Stock.git"
@@ -84,16 +99,69 @@
   "bugs": {
     "url": "https://github.com/onmyway0011/AI-Stock/issues"
   },
-  "homepage": "https://github.com/onmyway0011/AI-Stock#readme",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
+  },
+  "build": {
+    "appId": "com.aistock.trading",
+    "productName": "AI Stock Trading",
+    "copyright": "Copyright © 2024 AI Stock Trading Team",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "frontend/build/**/*",
+      "node_modules/**/*",
+      "assets/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AI Stock Trading"
+    }
   },
   "devDependencies": {
     "@types/jest": "^29.5.5",
     "@types/node": "^20.6.3",
     "@typescript-eslint/eslint-plugin": "^6.7.2",
     "@typescript-eslint/parser": "^6.7.2",
+    "concurrently": "^8.2.2",
+    "electron": "^26.2.4",
+    "electron-builder": "^24.6.4",
     "eslint": "^8.50.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.0",
@@ -103,14 +171,22 @@
     "rimraf": "^5.0.5",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "wait-on": "^7.0.1"
   },
   "dependencies": {
     "axios": "^1.5.0",
     "commander": "^11.0.0",
     "dotenv": "^16.3.1",
     "winston": "^3.10.0",
-    "ws": "^8.14.2"
+    "ws": "^8.14.2",
+    "electron-updater": "^6.1.4",
+    "electron-store": "^8.1.0",
+    "node-cron": "^3.0.2",
+    "nodemailer": "^6.9.7",
+    "cos-nodejs-sdk-v5": "^2.12.4",
+    "qcloud-cos-sts": "^3.1.0",
+    "node-notifier": "^10.0.1"
   },
   "jest": {
     "preset": "ts-jest",

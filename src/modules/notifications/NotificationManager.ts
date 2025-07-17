@@ -8,10 +8,10 @@ import {
   NotificationMessage,
   TradingSignal,
   NotificationChannel,
-  SignalConfig,
-  SignalStatistics
+  // SignalConfig,
+  // SignalStatistics
 } from '../../../shared/types';
-import { BaseNotificationChannel, ChannelStatus, SendResult } from './channels/BaseNotificationChannel';
+import { BaseNotificationChannel } from './channels/BaseNotificationChannel';
 import { WeChatNotificationChannel, WeChatConfig } from './channels/WeChatNotificationChannel';
 import { DateUtils } from '../../../shared/utils';
 

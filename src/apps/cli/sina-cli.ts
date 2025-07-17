@@ -1,12 +1,4 @@
-#!/usr/bin/env node
-/**
- * 新浪财经命令行工具
- * 提供便捷的A股数据查询功能
- */
-
-import { Command } from 'commander';
-import { SinaFinanceCollector } from '../../data/collectors/SinaFinanceCollector';
-import { createLogger } from '../../utils';
+import { createLogger } from '../../utils/logger';
 
 const logger = createLogger('SINA_CLI');
 const program = new Command();
@@ -283,6 +275,7 @@ async function getMarketOverview(): Promise<void> {
     
     console.log('📈 主要指数:');
     displayPriceTable(indexData);
+    
     console.log('\n⭐ 热门股票:');
     const hotStocks = await collector.getPopularStocks();
     const hotData = await collector.getMultipleRealTimeData(hotStocks.slice(0, 5));

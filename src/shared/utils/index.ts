@@ -120,7 +120,7 @@ export class MathUtils {
     const avgGain = gains / period;
     const avgLoss = losses / period;
     if (avgLoss === 0) return 100;
-    const rs = avgGain / avgLoss;
+        const rs = avgGain / avgLoss;
     return 100 - (100 / (1 + rs));
   }
 

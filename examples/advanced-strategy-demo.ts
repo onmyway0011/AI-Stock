@@ -4,9 +4,9 @@
  */
 
 import { LeftSideBuildingStrategy, LeftSideBuildingConfig } from '../src/strategies/advanced/LeftSideBuildingStrategy';
-import { MLOptimizer } from '../src/strategies/ml/MLOptimizer';
-import { DynamicParameterAdjuster } from '../src/strategies/optimization/DynamicParameterAdjuster';
-import { MarketData, KlineData, Signal, OrderSide, SignalStrength } from '../src/types';
+import { MLOptimizer } from '../src/modules/strategies/ml/MLOptimizer';
+import { DynamicParameterAdjuster } from '../src/modules/strategies/optimization/DynamicParameterAdjuster';
+import { MarketData, Kline, Signal, OrderSide, SignalStrength } from '../src/shared/types/index';
 
 /**
  * 市场数据模拟器
@@ -16,7 +16,7 @@ class MarketDataSimulator {
    * 生成模拟K线数据
    */
   generateKlineData(symbol: string, count: number, startPrice: number = 100): MarketData {
-    const klines: KlineData[] = [];
+    const klines: Kline[] = [];
     let currentPrice = startPrice;
     const baseTime = Date.now() - count * 3600000; // 往前推N小时
 
@@ -39,8 +39,6 @@ class MarketDataSimulator {
         close,
         volume,
         quoteVolume: volume * currentPrice,
-        trades: Math.floor(Math.random() * 1000) + 100,
-        interval: '1h'
       });
 
       currentPrice = close;
@@ -49,8 +47,6 @@ class MarketDataSimulator {
     return {
       symbol,
       klines,
-      timestamp: Date.now(),
-      source: 'simulator'
     };
   }
 
@@ -58,7 +54,7 @@ class MarketDataSimulator {
    * 模拟牛市行情
    */
   simulateBullMarket(symbol: string = 'BTCUSDT', days: number = 30): MarketData {
-    const klines: KlineData[] = [];
+    const klines: Kline[] = [];
     let currentPrice = 45000;
     const baseTime = Date.now() - days * 24 * 3600000;
     const trend = 0.003; // 每小时0.3%的上涨趋势
@@ -84,8 +80,6 @@ class MarketDataSimulator {
         close,
         volume,
         quoteVolume: volume * currentPrice,
-        trades: Math.floor(Math.random() * 2000) + 500,
-        interval: '1h'
       });
 
       currentPrice = close;
@@ -94,8 +88,6 @@ class MarketDataSimulator {
     return {
       symbol,
       klines,
-      timestamp: Date.now(),
-      source: 'simulator'
     };
   }
 
@@ -103,7 +95,7 @@ class MarketDataSimulator {
    * 模拟熊市行情
    */
   simulateMarketCrash(symbol: string = 'BTCUSDT', days: number = 15): MarketData {
-    const klines: KlineData[] = [];
+    const klines: Kline[] = [];
     let currentPrice = 50000;
     const baseTime = Date.now() - days * 24 * 3600000;
 
@@ -129,8 +121,6 @@ class MarketDataSimulator {
         close,
         volume,
         quoteVolume: volume * currentPrice,
-        trades: Math.floor(Math.random() * 3000) + 1000,
-        interval: '1h'
       });
 
       currentPrice = close;
@@ -139,8 +129,6 @@ class MarketDataSimulator {
     return {
       symbol,
       klines,
-      timestamp: Date.now(),
-      source: 'simulator'
     };
   }
 
@@ -148,7 +136,7 @@ class MarketDataSimulator {
    * 模拟震荡行情
    */
   simulateSidewaysMarket(symbol: string = 'BTCUSDT', days: number = 45): MarketData {
-    const klines: KlineData[] = [];
+    const klines: Kline[] = [];
     let currentPrice = 47000;
     const basePrice = currentPrice;
     const baseTime = Date.now() - days * 24 * 3600000;
@@ -175,8 +163,6 @@ class MarketDataSimulator {
         close,
         volume,
         quoteVolume: volume * currentPrice,
-        trades: Math.floor(Math.random() * 1500) + 300,
-        interval: '1h'
       });
 
       currentPrice = close;
@@ -185,8 +171,6 @@ class MarketDataSimulator {
     return {
       symbol,
       klines,
-      timestamp: Date.now(),
-      source: 'simulator'
     };
   }
 }
@@ -235,16 +219,22 @@ async function runAdvancedStrategyDemo(): Promise<void> {
 
     const strategy = new LeftSideBuildingStrategy(strategyConfig);
     const mlOptimizer = new MLOptimizer({
-      modelType: 'randomForest',
-      trainingSamples: 100,
-      validationRatio: 0.2,
-      confidenceThreshold: 0.7
+      enabled: true,
+      modelType: 'RandomForest',
+      featureWindowSize: 20,
+      predictionWindowSize: 5,
+      retrainInterval: 24,
+      minTrainSamples: 100,
+      confidenceThreshold: 0.7,
+      features: ['close', 'volume', 'rsi', 'macd']
     });
     const parameterAdjuster = new DynamicParameterAdjuster({
-      optimizationMethod: 'bayesian',
-      maxIterations: 50,
-      targetMetric: 'sharpeRatio',
-      minImprovement: 0.05
+      enabled: true,
+      adjustmentFrequency: 24,
+      evaluationPeriod: 7,
+      adjustmentMagnitude: 0.1,
+      minPerformanceThreshold: 0.5,
+      adjustableParameters: ['minDropPercent', 'maxBuildingTimes']
     });
 
     // 运行各个演示
@@ -294,8 +284,6 @@ async function demoBasicStrategy(
     const segmentData: MarketData = {
       symbol: crashData.symbol,
       klines: crashData.klines.slice(0, i),
-      timestamp: crashData.klines[i - 1].closeTime,
-      source: 'simulator'
     };
 
     const signal = await strategy.generateSignal(segmentData);
@@ -304,7 +292,7 @@ async function demoBasicStrategy(
       const currentPrice = segmentData.klines[segmentData.klines.length - 1].close;
       
       console.log(`📈 生成信号 #${totalSignals}:`);
-      console.log(`   时间: ${new Date(segmentData.timestamp).toLocaleString()}`);
+      console.log(`   时间: ${new Date(segmentData.klines[segmentData.klines.length - 1].closeTime).toLocaleString()}`);
       console.log(`   操作: ${signal.side} ${signal.symbol}`);
       console.log(`   价格: ${currentPrice.toFixed(2)}`);
       console.log(`   数量: ${signal.quantity}`);
@@ -312,12 +300,12 @@ async function demoBasicStrategy(
       console.log(`   策略: ${signal.strategy}`);
       console.log(`   原因: ${signal.reason}`);
 
-      if (signal.side === OrderSide.BUY) {
+      if (signal.side === 'BUY') {
         positions.push({
           symbol: signal.symbol,
           price: currentPrice,
           quantity: signal.quantity,
-          timestamp: segmentData.timestamp,
+          timestamp: segmentData.klines[segmentData.klines.length - 1].closeTime,
           level: positions.length + 1
         });
       }
@@ -341,7 +329,7 @@ async function demoBasicStrategy(
   console.log('');
 
   // 获取策略当前状态
-  const currentState = await strategy.getCurrentState();
+  const currentState = await (strategy as any).getCurrentState();
   console.log(`   当前活跃仓位: ${currentState.positions.length}`);
   console.log('');
 }
@@ -453,7 +441,7 @@ async function demoDynamicParameterAdjustment(
     const optimizationResult = await parameterAdjuster.optimizeParameters(
       currentParams,
       currentPerformance,
-      'bayesian'
+      'grid'
     );
 
     console.log('✅ 参数优化完成\n');
@@ -601,7 +589,7 @@ async function demoIntegratedStrategy(
 
   // 最终策略状态
   console.log('\n🎯 最终策略状态:');
-  const finalState = await strategy.getCurrentState();
+  const finalState = await (strategy as any).getCurrentState();
   console.log(`   活跃仓位: ${finalState.positions.length}`);
   console.log(`   监控品种: ${finalState.activeSymbols.length}`);
 
